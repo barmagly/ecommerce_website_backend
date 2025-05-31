@@ -1,6 +1,5 @@
 exports.authorizeAdmin = (req, res, next) => {
     try {
-        console.log(req.user.role);
 
         if (req.user.role !== "Admin") {
             return res.status(403).json({ message: "Access denied. Admins only." });

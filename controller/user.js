@@ -1,126 +1,294 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const usersModel = require('../models/users');
+const mongoose = require('mongoose');
+const User = require('../models/user.model');
 
-const getAllUser = async (req, res, next) => {
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Generate JWT Token
+const generateToken = (id) => {
+    return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
+};
+
+const register = async (req, res, next) => {
     try {
-        const users = await usersModel.find();
-        res.status(200).json(users);
+        const { name, email, password, phone } = req.body;
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already registered' });
+        }
+
+        const user = await User.create({
+            name,
+            email,
+            password,
+            phone,
+            active: true
+        });
+
+        const token = generateToken(user._id);
+
+        res.status(201).json({
+            status: 'success',
+            data: {
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role
+                },
+                token
+            }
+        });
     } catch (err) {
-        next({ message: "Failed to retrieve users", error: err.message });
+        next({ message: 'Failed to register user', error: err.message });
+    }
+};
+
+const login = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+
+        const user = await User.findOne({ email }).select('+password');
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        const token = generateToken(user._id);
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role
+                },
+                token
+            }
+        });
+    } catch (err) {
+        next({ message: 'Failed to login', error: err.message });
+    }
+};
+
+const getAllUsers = async (req, res, next) => {
+    try {
+        const users = await User.find().select('-password');
+        res.status(200).json({
+            status: 'success',
+            data: users
+        });
+    } catch (err) {
+        next({ message: 'Failed to retrieve users', error: err.message });
     }
 };
 
 const getUserById = async (req, res, next) => {
-    const { id } = req.params;
     try {
+        const { id } = req.params;
+
         if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({ message: "Invalid user ID format" });
+            return res.status(400).json({ message: 'Invalid user ID format' });
         }
 
-        const user = await usersModel.findById(id);
+        const user = await User.findById(id).select('-password');
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-        res.status(200).json({ message: "Success", user });
-    } catch (err) {
-        next({ message: "Failed to retrieve user", error: err.message });
-    }
-};
-
-const addUser = async (req, res, next) => {
-    try {
-        const { firstName, lastName, email, password, phone, profileImage, dateOfBirth, gender, address, role, hostDetails, bookings } = req.body;
-
-        if (!firstName || !lastName || !email || !password || !dateOfBirth || !address) {
-            return res.status(400).json({ message: "Missing required fields" });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        const existingUser = await usersModel.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already exists" });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const newUser = new usersModel({
-            firstName, lastName, email, password: hashedPassword, phone, profileImage, dateOfBirth, gender, address, role, hostDetails, bookings
+        res.status(200).json({
+            status: 'success',
+            data: user
         });
-
-        const savedUser = await newUser.save();
-
-        res.status(201).json({ message: "User added successfully", user: savedUser });
-
     } catch (err) {
-        next({ message: "Failed to add user", error: err.message });
+        next({ message: 'Failed to retrieve user', error: err.message });
     }
 };
 
-
-const editUserById = async (req, res) => {
-    const { id } = req.params;
-    const data = req.body;
-
+const getProfile = async (req, res, next) => {
     try {
-        const updatedUser = await usersModel.findByIdAndUpdate(id, { ...data, updatedAt: Date.now() }, { new: true });
+        const user = await User.findById(req.user._id)
+            .select('-password')
+            .populate('wishlist');
 
-        if (!updatedUser) {
-            return res.status(404).json({ message: "User not found" });
+        res.status(200).json({
+            status: 'success',
+            data: user
+        });
+    } catch (err) {
+        next({ message: 'Failed to retrieve profile', error: err.message });
+    }
+};
+
+const updateUser = async (req, res, next) => {
+    try {
+        const { name, email, phone } = req.body;
+
+        if (email) {
+            const existingUser = await User.findOne({ email, _id: { $ne: req.user._id } });
+            if (existingUser) {
+                return res.status(400).json({ message: 'Email already in use' });
+            }
         }
 
-        res.status(200).json({ message: "Success", user: updatedUser });
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { name, email, phone },
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        res.status(200).json({
+            status: 'success',
+            data: user
+        });
     } catch (err) {
-        console.error("Error updating user:", err);
-        next(500).json({ message: "Failed to update user", error: err.message });
+        next({ message: 'Failed to update user', error: err.message });
     }
 };
 
-const deleteUserById = async (req, res) => {
-    const { id } = req.params;
+const updatePassword = async (req, res, next) => {
     try {
-        const user = await usersModel.findById(id);
+        const { currentPassword, newPassword } = req.body;
+
+        const user = await User.findById(req.user._id).select('+password');
+
+        if (!(await bcrypt.compare(currentPassword, user.password))) {
+            return res.status(401).json({ message: 'Current password is incorrect' });
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Password updated successfully'
+        });
+    } catch (err) {
+        next({ message: 'Failed to update password', error: err.message });
+    }
+};
+
+const deleteUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByIdAndDelete(id);
+
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({ message: 'User not found' });
         }
-        await usersModel.findByIdAndDelete(id);
-        res.status(200).json({ message: "User deleted successfully" });
+
+        res.status(204).json({
+            status: 'success',
+            data: null
+        });
     } catch (err) {
-        next({ message: "Failed to delete user", error: err.message });
+        next({ message: 'Failed to delete user', error: err.message });
     }
 };
 
-
-
-const userLogin = async (req, res, next) => {
-    const { email, password } = req.body;
-    console.log(req.body);
-    console.log(email, password);
-
-
+const addToWishlist = async (req, res, next) => {
     try {
-        if (!email || !password) {
+        const { productId } = req.params;
+        
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $addToSet: { wishlist: productId } },
+            { new: true }
+        ).populate('wishlist');
 
-            return res.status(400).json({ message: "You must provide a name and password" });
-        }
-
-        const user = await usersModel.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: "Invalid username or password" });
-        }
-
-        const isValid = await bcrypt.compare(password, user.password);
-        console.log(password, user.password);
-
-        if (!isValid) {
-            return res.status(400).json({ message: "Invalid username or password" });
-        }
-
-        const token = jwt.sign({ id: user._id, email: user.email }, 'ahmed_kamal');
-
-        res.status(200).json({ message: "Login successful", token });
+        res.status(200).json({
+            status: 'success',
+            data: user.wishlist
+        });
     } catch (err) {
-        next({ message: "Failed to log in", error: err.message });
+        next({ message: 'Failed to add to wishlist', error: err.message });
     }
 };
 
-module.exports = { getAllUser, getUserById, addUser, editUserById, deleteUserById, userLogin };
+const removeFromWishlist = async (req, res, next) => {
+    try {
+        const { productId } = req.params;
+        
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { $pull: { wishlist: productId } },
+            { new: true }
+        ).populate('wishlist');
+
+        res.status(200).json({
+            status: 'success',
+            data: user.wishlist
+        });
+    } catch (err) {
+        next({ message: 'Failed to remove from wishlist', error: err.message });
+    }
+};
+
+const addAddress = async (req, res, next) => {
+    try {
+        const { details, city, postalCode } = req.body;
+        
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $push: {
+                    addresses: {
+                        id: new mongoose.Types.ObjectId(),
+                        details,
+                        city,
+                        postalCode
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            status: 'success',
+            data: user.addresses
+        });
+    } catch (err) {
+        next({ message: 'Failed to add address', error: err.message });
+    }
+};
+
+const removeAddress = async (req, res, next) => {
+    try {
+        const { addressId } = req.params;
+        
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $pull: {
+                    addresses: { id: addressId }
+                }
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            status: 'success',
+            data: user.addresses
+        });
+    } catch (err) {
+        next({ message: 'Failed to remove address', error: err.message });
+    }
+};
+
+module.exports = {
+    register,
+    login,
+    getAllUsers,
+    getUserById,
+    updateUser,
+    deleteUser,
+    updatePassword,
+    getProfile,
+    addToWishlist,
+    removeFromWishlist,
+    addAddress,
+    removeAddress
+};

@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/users");
+const User = require("../models/user.model");
 
 
 const isAuthenticated = async (req, res, next) => {
@@ -14,7 +14,8 @@ const isAuthenticated = async (req, res, next) => {
 
         let decoded;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+            decoded = jwt.verify(token, JWT_SECRET);
             if (!decoded.id) {
                 throw new Error("Invalid token format");
             }
