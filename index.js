@@ -1,28 +1,32 @@
-const express = require('express');
+import express from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import { connectDB } from './DB/connection';
+
+dotenv.config();
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// const users = require("./routers/usrs")
-
-const mongoose = require('mongoose');
+app.use(cors());
 app.use(express.json());
-app.use(express.static('static'));
 
-mongoose.connect('mongodb://127.0.0.1:27017/-----').then(() => {
-    console.log("connection established");
-}).catch((err) => {
-    console.log(err);
-})
+await connectDB();
 
-var cors = require('cors')
-app.use(cors())
+// app.use("auth",)
 
-// app.use('/airbnb/users', users);
-
+app.all("*", (req, res, next) => {
+    return next(new Error(`page not found `, { cause: 404 }));
+});
 app.use((err, req, res, next) => {
-    res.json(err).status(500);
+    const statusCode = err.cause || 500;
+    const message = err.message || 'Internal Server Error';
+    res.status(statusCode).json({
+        success: false,
+        stack: err.stack,
+        message: message,
+    });
 });
 
-
-app.listen(3000, () => {
-    console.log("server started on http://localhost:3000");
-})
+app.listen(PORT, () => {
+    console.log(`App is running on port ${PORT}`);
+});

@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
             },
         },
         phone: String,
-        profileImg: String,
+        profileImg: { url: { type: String, default:''}, id: { type: String } },
 
         password: {
             type: String,
@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
             enum: ['user', 'admin'],
             default: 'user',
         },
-        active: {
+        isConfirmed: {
             type: Boolean,
             default: false,
         },
@@ -53,14 +53,13 @@ const userSchema = new mongoose.Schema(
                 ref: 'Product',
             },
         ],
-        addresses: [
-            {
-                id: { type: mongoose.Schema.Types.ObjectId },
-                details: String,
-                city: String,
-                postalCode: String,
-            },
-        ],
+        gender: {
+            type: String,
+            enum: ["male", "female"]
+        },
+        forgetCode: String,
+
+
     },
     { timestamps: true }
 );
