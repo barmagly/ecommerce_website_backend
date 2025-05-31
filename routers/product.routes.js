@@ -1,0 +1,381 @@
+const express = require('express');
+const productController = require('../controller/product.controller');
+const variantController = require('../controller/variant.controller');
+const { verifyToken, isAdmin, isAuthenticated } = require('../middlewares/userauth');
+const { authorizeAdmin } = require('../middlewares/authrization');
+
+const router = express.Router();
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Variant:
+ *       type: object
+ *       required:
+ *         - sku
+ *         - price
+ *         - quantity
+ *       properties:
+ *         sku:
+ *           type: string
+ *           description: Unique SKU for the variant
+ *         color:
+ *           type: object
+ *           properties:
+ *             name:
+ *               type: string
+ *             code:
+ *               type: string
+ *         size:
+ *           type: object
+ *           properties:
+ *             name:
+ *               type: string
+ *             code:
+ *               type: string
+ *         price:
+ *           type: number
+ *         quantity:
+ *           type: number
+ *         images:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *               alt:
+ *                 type: string
+ *               isPrimary:
+ *                 type: boolean
+ *     Product:
+ *       type: object
+ *       required:
+ *         - title
+ *         - description
+ *         - brand
+ *         - category
+ *         - price
+ *         - imageCover
+ *       properties:
+ *         title:
+ *           type: string
+ *         description:
+ *           type: string
+ *         brand:
+ *           type: string
+ *         category:
+ *           type: string
+ *         price:
+ *           type: number
+ *         options:
+ *           type: object
+ *           properties:
+ *             colors:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   code:
+ *                     type: string
+ *             sizes:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   code:
+ *                     type: string
+ *         variants:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Variant'
+ */
+
+// Protect all routes after this middleware
+router.use(isAuthenticated);
+
+/**
+ * @swagger
+ * /api/products:
+ *   get:
+ *     summary: Get all products
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: List of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 results:
+ *                   type: number
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Product'
+ */
+router.get('/', productController.getAllProducts);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   get:
+ *     summary: Get a product by ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     product:
+ *                       $ref: '#/components/schemas/Product'
+ *       404:
+ *         description: Product not found
+ */
+router.get('/:id', productController.getProduct);
+
+// Admin only routes
+router.use(authorizeAdmin);
+
+/**
+ * @swagger
+ * /api/products:
+ *   post:
+ *     summary: Create a new product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Product'
+ *     responses:
+ *       201:
+ *         description: Product created successfully
+ *       401:
+ *         description: Not authorized
+ *       403:
+ *         description: Admin access required
+ */
+router.post('/', productController.createProduct);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   patch:
+ *     summary: Update a product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Product'
+ *     responses:
+ *       200:
+ *         description: Product updated successfully
+ *       404:
+ *         description: Product not found
+ *   delete:
+ *     summary: Delete a product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Product deleted successfully
+ *       404:
+ *         description: Product not found
+ */
+router
+    .route('/:id')
+    .patch(productController.updateProduct)
+    .delete(productController.deleteProduct);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants:
+ *   get:
+ *     summary: Get all variants of a product
+ *     tags: [Variants]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of variants
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     variants:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Variant'
+ *   post:
+ *     summary: Add a new variant to a product
+ *     tags: [Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Variant'
+ *     responses:
+ *       201:
+ *         description: Variant added successfully
+ */
+router
+    .route('/:productId/variants')
+    .get(variantController.getVariants)
+    .post(variantController.addVariant);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants/{variantId}:
+ *   patch:
+ *     summary: Update a variant
+ *     tags: [Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Variant'
+ *     responses:
+ *       200:
+ *         description: Variant updated successfully
+ *   delete:
+ *     summary: Delete a variant
+ *     tags: [Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Variant deleted successfully
+ */
+router
+    .route('/:productId/variants/:variantId')
+    .patch(variantController.updateVariant)
+    .delete(variantController.deleteVariant);
+
+/**
+ * @swagger
+ * /api/products/{productId}/variants/{variantId}/stock:
+ *   patch:
+ *     summary: Update variant stock quantity
+ *     tags: [Variants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - quantity
+ *             properties:
+ *               quantity:
+ *                 type: number
+ *                 minimum: 0
+ *     responses:
+ *       200:
+ *         description: Stock updated successfully
+ *       400:
+ *         description: Invalid quantity
+ */
+router.patch('/:productId/variants/:variantId/stock', variantController.updateStock);
+
+module.exports = router;

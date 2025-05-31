@@ -5,7 +5,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
 // Import routers
-// const productRouter = require('./routers/productRoutes');
+const productRouter = require('./routers/product.routes');
 const categoryRouter = require('./routers/category');
 const cartRouter = require('./routers/cart');
 const orderRouter = require('./routers/order');
@@ -35,7 +35,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API Routes
 app.use('/api/auth', userRouter);
-// app.use('/api/products', productRouter); // This includes nested variant routes
+app.use('/api/products', productRouter); // This includes nested variant routes
 app.use('/api/categories', categoryRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/orders', orderRouter);
