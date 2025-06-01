@@ -1,14 +1,29 @@
 const { Product, ProductVariant } = require('../models/product.model');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const { uploadToCloudinary } = require('../utils/cloudinary');
 
 // Create a new product with variants
 exports.createProduct = catchAsync(async (req, res) => {
+    // Upload images if provided
+    let productImages = [];
+    if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+            const result = await uploadToCloudinary(file, 'products');
+            productImages.push({
+                url: result.url,
+                alt: req.body.title,
+                isPrimary: productImages.length === 0 // First image is primary
+            });
+        }
+    }
+
     // Create the main product
     const product = await Product.create({
         ...req.body,
         isParent: true,
-        totalVariants: 0
+        totalVariants: 0,
+        images: productImages
     });
 
     // If variants are provided, create them
