@@ -1,4 +1,4 @@
-const Product = require('../models/product.model');
+const { Product, ProductVariant } = require('../models/product.model');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 
@@ -10,50 +10,47 @@ exports.addVariant = catchAsync(async (req, res, next) => {
         return next(new AppError('No product found with that ID', 404));
     }
 
-    // Add new variant
-    product.variants.push(req.body);
-    await product.save();
+    // Create new variant
+    const variant = await ProductVariant.create({
+        ...req.body,
+        product: product._id
+    });
 
     res.status(201).json({
         status: 'success',
         data: {
-            variant: product.variants[product.variants.length - 1]
+            variant
         }
     });
 });
 
 // Get all variants of a product
 exports.getVariants = catchAsync(async (req, res, next) => {
-    const product = await Product.findById(req.params.productId);
-    
-    if (!product) {
-        return next(new AppError('No product found with that ID', 404));
-    }
+    const variants = await ProductVariant.find({ product: req.params.productId });
 
     res.status(200).json({
         status: 'success',
-        results: product.variants.length,
+        results: variants.length,
         data: {
-            variants: product.variants
+            variants
         }
     });
 });
 
 // Update variant
 exports.updateVariant = catchAsync(async (req, res, next) => {
-    const product = await Product.findById(req.params.productId);
-    
-    if (!product) {
-        return next(new AppError('No product found with that ID', 404));
-    }
+    const variant = await ProductVariant.findOneAndUpdate(
+        { 
+            _id: req.params.variantId,
+            product: req.params.productId
+        },
+        req.body,
+        { new: true, runValidators: true }
+    );
 
-    const variant = product.variants.id(req.params.variantId);
     if (!variant) {
-        return next(new AppError('No variant found with that ID', 404));
+        return next(new AppError('No variant found with that ID for this product', 404));
     }
-
-    Object.assign(variant, req.body);
-    await product.save();
 
     res.status(200).json({
         status: 'success',
@@ -65,19 +62,14 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
 
 // Delete variant
 exports.deleteVariant = catchAsync(async (req, res, next) => {
-    const product = await Product.findById(req.params.productId);
-    
-    if (!product) {
-        return next(new AppError('No product found with that ID', 404));
-    }
+    const variant = await ProductVariant.findOneAndDelete({
+        _id: req.params.variantId,
+        product: req.params.productId
+    });
 
-    const variant = product.variants.id(req.params.variantId);
     if (!variant) {
-        return next(new AppError('No variant found with that ID', 404));
+        return next(new AppError('No variant found with that ID for this product', 404));
     }
-
-    variant.remove();
-    await product.save();
 
     res.status(204).json({
         status: 'success',
@@ -87,23 +79,22 @@ exports.deleteVariant = catchAsync(async (req, res, next) => {
 
 // Update variant stock
 exports.updateStock = catchAsync(async (req, res, next) => {
-    const product = await Product.findById(req.params.productId);
-    
-    if (!product) {
-        return next(new AppError('No product found with that ID', 404));
-    }
-
-    const variant = product.variants.id(req.params.variantId);
-    if (!variant) {
-        return next(new AppError('No variant found with that ID', 404));
-    }
-
     if (typeof req.body.quantity !== 'number' || req.body.quantity < 0) {
         return next(new AppError('Please provide a valid quantity', 400));
     }
 
-    variant.quantity = req.body.quantity;
-    await product.save();
+    const variant = await ProductVariant.findOneAndUpdate(
+        { 
+            _id: req.params.variantId,
+            product: req.params.productId
+        },
+        { quantity: req.body.quantity },
+        { new: true, runValidators: true }
+    );
+
+    if (!variant) {
+        return next(new AppError('No variant found with that ID for this product', 404));
+    }
 
     res.status(200).json({
         status: 'success',
