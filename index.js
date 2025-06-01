@@ -21,7 +21,7 @@ app.use(express.static('static'));
 app.use(cors());
 
 // Database connection
-mongoose.connect('mongodb://127.0.0.1:27017/ecommerce', {
+mongoose.connect('mongodb+srv://barmaglyy:Wr4sTf0EjgvwvEGn@ecommerc.orhrblw.mongodb.net/?retryWrites=true&w=majority&appName=Ecommerc', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
@@ -43,14 +43,9 @@ app.use('/api/reviews', reviewRouter);
 app.use('/api/coupons', couponRouter);
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(err.status || 500).json({
-        status: 'error',
-        message: err.message || 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? err : {}
-    });
-});
+app.use((err,req,res,next)=>{
+    res.json(err).status(500)
+})
 
 // 404 handler
 app.use((req, res) => {
