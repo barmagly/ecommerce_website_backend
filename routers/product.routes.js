@@ -3,6 +3,7 @@ const productController = require('../controller/product.controller');
 const variantController = require('../controller/variant.controller');
 const { verifyToken, isAdmin, isAuthenticated } = require('../middlewares/userauth');
 const { authorizeAdmin } = require('../middlewares/authrization');
+const upload = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
@@ -184,7 +185,7 @@ router.use(authorizeAdmin);
  *       403:
  *         description: Admin access required
  */
-router.post('/', productController.createProduct);
+router.post('/', isAuthenticated, authorizeAdmin, upload.array('images', 5), productController.createProduct);
 
 /**
  * @swagger
@@ -282,10 +283,9 @@ router
  *       201:
  *         description: Variant added successfully
  */
-router
-    .route('/:productId/variants')
-    .get(variantController.getVariants)
-    .post(variantController.addVariant);
+router.route('/:productId/variants')
+    .post(isAuthenticated, authorizeAdmin, upload.array('images', 5), variantController.addVariant)
+    .get(variantController.getVariants);
 
 /**
  * @swagger
@@ -336,8 +336,8 @@ router
  */
 router
     .route('/:productId/variants/:variantId')
-    .patch(variantController.updateVariant)
-    .delete(variantController.deleteVariant);
+    .patch(isAuthenticated, authorizeAdmin, variantController.updateVariant)
+    .delete(isAuthenticated, authorizeAdmin, variantController.deleteVariant);
 
 /**
  * @swagger
@@ -376,6 +376,6 @@ router
  *       400:
  *         description: Invalid quantity
  */
-router.patch('/:productId/variants/:variantId/stock', variantController.updateStock);
+router.patch('/:productId/variants/:variantId/stock', isAuthenticated, authorizeAdmin, variantController.updateStock);
 
 module.exports = router;

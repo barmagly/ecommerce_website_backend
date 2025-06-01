@@ -1,6 +1,7 @@
 const { Product, ProductVariant } = require('../models/product.model');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const { uploadToCloudinary } = require('../utils/cloudinary');
 
 // Add variant to product
 exports.addVariant = catchAsync(async (req, res, next) => {
@@ -10,10 +11,24 @@ exports.addVariant = catchAsync(async (req, res, next) => {
         return next(new AppError('No product found with that ID', 404));
     }
 
+    // Upload images if provided
+    let variantImages = [];
+    if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+            const result = await uploadToCloudinary(file, 'variants');
+            variantImages.push({
+                url: result.url,
+                alt: req.body.sku,
+                isPrimary: variantImages.length === 0 // First image is primary
+            });
+        }
+    }
+
     // Create new variant
     const variant = await ProductVariant.create({
         ...req.body,
-        product: product._id
+        product: product._id,
+        images: variantImages
     });
 
     res.status(201).json({

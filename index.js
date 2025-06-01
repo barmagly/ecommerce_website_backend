@@ -21,7 +21,7 @@ app.use(express.static('static'));
 app.use(cors());
 
 // Database connection
-mongoose.connect('mongodb://127.0.0.1:27017/ecommerce', {
+mongoose.connect('mongodb+srv://barmaglyy:Wr4sTf0EjgvwvEGn@ecommerc.orhrblw.mongodb.net/?retryWrites=true&w=majority&appName=Ecommerc', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 }).then(() => {
