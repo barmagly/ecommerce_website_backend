@@ -49,39 +49,54 @@ async function connectToDatabase() {
     }
 }
 
-// Initialize database connection
-connectToDatabase();
+// Initialize app with database connection first
+const startServer = async () => {
+    try {
+        // Wait for database connection
+        await connectToDatabase();
+        console.log('Database connection ready');
 
-// Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+        // Swagger UI
+        app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// API Routes
-app.use('/api/auth', userRouter);
-app.use('/api/products', productRouter); // This includes nested variant routes
-app.use('/api/categories', categoryRouter);
-app.use('/api/cart', cartRouter);
-app.use('/api/orders', orderRouter);
-app.use('/api/reviews', reviewRouter);
-app.use('/api/coupons', couponRouter);
+        // API Routes
+        app.use('/api/auth', userRouter);
+        app.use('/api/products', productRouter); // This includes nested variant routes
+        app.use('/api/categories', categoryRouter);
+        app.use('/api/cart', cartRouter);
+        app.use('/api/orders', orderRouter);
+        app.use('/api/reviews', reviewRouter);
+        app.use('/api/coupons', couponRouter);
 
-// Error handling middleware
-app.use((err,req,res,next)=>{
-    console.log(`Error occurred: ${err.message}`);
-    
-    res.json(err).status(500)
-})
+        // Error handling middleware
+        app.use((err, req, res, next) => {
+            console.error('Error:', err.message);
+            res.status(500).json({
+                status: 'error',
+                message: err.message
+            });
+        });
 
-// 404 handler
-app.use((req, res) => {
-    console.log(`Route not found: ${req.method} ${req.url}`);
-    res.status(404).json({
-        status: 'error',
-        message: 'Route not found'
-    });
-});
+        // 404 handler
+        app.use((req, res) => {
+            console.log(`Route not found: ${req.method} ${req.url}`);
+            res.status(404).json({
+                status: 'error',
+                message: 'Route not found'
+            });
+        });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server started on http://localhost:${PORT}`);
-});
+        // Start server
+        const PORT = process.env.PORT || 3000;
+        app.listen(PORT, () => {
+            console.log(`Server started on http://localhost:${PORT}`);
+        });
+
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+// Start the server
+startServer();
