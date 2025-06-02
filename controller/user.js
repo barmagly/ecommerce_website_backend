@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const User = require('../models/user.model');
-const {Product, ProductVariant}=require('../models/product.model');
+const { Product, ProductVariant } = require('../models/product.model');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Generate JWT Token
@@ -193,7 +193,7 @@ const addToWishlist = async (req, res, next) => {
     try {
         const { productId } = req.params;
         const product = await Product.findById(productId);
-        if (!product) { 
+        if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
         const user = await User.findByIdAndUpdate(
@@ -213,11 +213,11 @@ const addToWishlist = async (req, res, next) => {
 
 const removeFromWishlist = async (req, res, next) => {
     try {
-        const { productId } = req.params;    
+        const { productId } = req.params;
         const product = await Product.findById(productId);
-        if (!product) { 
+        if (!product) {
             return res.status(404).json({ message: 'Product not found' });
-        }  
+        }
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { $pull: { wishlist: productId } },
@@ -236,7 +236,7 @@ const removeFromWishlist = async (req, res, next) => {
 const addAddress = async (req, res, next) => {
     try {
         const { details, city, postalCode } = req.body;
-        
+
         const user = await User.findByIdAndUpdate(
             req.user._id,
             {
@@ -264,7 +264,7 @@ const addAddress = async (req, res, next) => {
 const removeAddress = async (req, res, next) => {
     try {
         const { addressId } = req.params;
-        
+
         const user = await User.findByIdAndUpdate(
             req.user._id,
             {
@@ -283,6 +283,91 @@ const removeAddress = async (req, res, next) => {
         next({ message: 'Failed to remove address', error: err.message });
     }
 };
+//------------------------------------------------------------
+
+const { OAuth2Client } = require('google-auth-library');
+const nodemailer = require('nodemailer');
+
+const client = new OAuth2Client('812727128915-pjdracpnf7dalh7ppeagmtfhkea0vf3s.apps.googleusercontent.com');
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'barmaglyy@gmail.com',
+        pass: 'prhv ikvn ijkb bvib'
+    }
+});
+
+const googleLogin = async (req, res) => {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+        return res.status(400).json({ success: false, message: 'ID Token is required' });
+    }
+
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const { sub: googleId, email, name, picture, email_verified } = payload;
+
+        let user = await User.findOne({ email });
+        if (!user) {
+            user = new User({
+                name,
+                email,
+                googleId,
+                profileImg: picture,
+                isGoogleUser: true
+            });
+
+            await user.save();
+            console.log(`✅ New user created: ${email}`);
+
+            const mailOptions = {
+                from: 'barmaglyy@gmail.com',
+                to: email,
+                subject: 'Welcome to our platform!',
+                text: `Hello ${name},\n\nThank you for signing up with us! We're excited to have you onboard in our platform. 😊`
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                if (error) {
+                    console.log('Error sending email:', error);
+                } else {
+                    console.log('Welcome email sent:', info.response);
+                }
+            });
+        } else {
+            console.log(`Existing user logged in: ${email}`);
+        }
+        const serverToken = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                profileImg: user.profileImg,
+                email_verified: email_verified
+            },
+            token: serverToken
+        });
+
+    } catch (error) {
+        console.error('❌ Token verification failed:', error);
+        res.status(401).json({ success: false, message: 'Invalid ID Token' });
+    }
+};
+
 
 module.exports = {
     register,
@@ -296,5 +381,6 @@ module.exports = {
     addToWishlist,
     removeFromWishlist,
     addAddress,
-    removeAddress
+    removeAddress,
+    googleLogin
 };
