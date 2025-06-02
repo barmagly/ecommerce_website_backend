@@ -21,14 +21,36 @@ app.use(express.static('static'));
 app.use(cors());
 
 // Database connection
-mongoose.connect('mongodb+srv://barmaglyy:Wr4sTf0EjgvwvEGn@ecommerc.orhrblw.mongodb.net/?retryWrites=true&w=majority&appName=Ecommerc', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => {
-    console.log("MongoDB connection established");
-}).catch((err) => {
-    console.log("MongoDB connection error:", err);
-});
+let cachedDb = null;
+
+async function connectToDatabase() {
+    if (cachedDb) {
+        return cachedDb;
+    }
+
+    const opts = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        // Add serverless-specific options
+        bufferCommands: false,
+        maxPoolSize: 1,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+    };
+
+    try {
+        const db = await mongoose.connect('mongodb+srv://barmaglyy:Wr4sTf0EjgvwvEGn@ecommerc.orhrblw.mongodb.net/?retryWrites=true&w=majority&appName=Ecommerc', opts);
+        cachedDb = db;
+        console.log('MongoDB connection established');
+        return db;
+    } catch (err) {
+        console.log('MongoDB connection error:', err);
+        throw err;
+    }
+}
+
+// Initialize database connection
+connectToDatabase();
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
