@@ -24,9 +24,9 @@ exports.createProduct = catchAsync(async (req, res, next) => {
                     isPrimary: productImages.length === 0 // First image is primary
                 });
             }
-
-            // Create the main product
         }
+
+        // Create the main product
         const product = await Product.create({
             ...req.body,
             isParent: true,
@@ -34,6 +34,23 @@ exports.createProduct = catchAsync(async (req, res, next) => {
             images: productImages,
             imageCover: coverResult.url
         });
+
+        // If variants are provided, create them
+        if (req.body.variants && Array.isArray(req.body.variants)) {
+            const variants = req.body.variants.map(variant => ({
+                ...variant,
+                product: product._id
+            }));
+            const createdVariants = await ProductVariant.insertMany(variants);
+
+            // Update product with total variants count
+            await Product.findByIdAndUpdate(product._id, {
+                totalVariants: createdVariants.length
+            });
+        }
+
+        // Fetch the updated product with variants
+        const updatedProduct = await Product.findById(product._id).populate('productVariants');
 
         res.status(201).json({
             status: 'success',
@@ -98,20 +115,47 @@ exports.getProduct = catchAsync(async (req, res, next) => {
 exports.updateProduct = catchAsync(async (req, res, next) => {
     try {
 
-        const product = await Product.findById(req.params.id);
-        if (!product) {
-            return next(new AppError('No product found with that ID', 404));
-        }
-        product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true
-        });
-
-
-        res.status(200).json({
-            status: 'success',
-            product
-        });
+       const product = await Product.findById(req.params.id);
+       
+           if (!product) {
+               return next(new AppError('No product found with that ID', 404));
+           }
+       
+           const updateData = { ...req.body };
+       
+           // Handle cover image update if provided
+           if (req.files?.imageCover) {
+               const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
+               updateData.imageCover = coverResult.url;
+           }
+       
+           // Handle additional images update if provided
+           if (req.files?.images) {
+               const newImages = [];
+               for (const file of req.files.images) {
+                   const result = await uploadToCloudinary(file, 'products');
+                   newImages.push({
+                       url: result.url,
+                       alt: req.body.title || product.title,
+                       isPrimary: newImages.length === 0
+                   });
+               }
+               // Combine existing and new images if requested
+               updateData.images = req.body.keepExistingImages ? 
+                   [...(product.images || []), ...newImages] : 
+                   newImages;
+           }
+       
+           const updatedProduct = await Product.findByIdAndUpdate(
+               req.params.id,
+               updateData,
+               { new: true, runValidators: true }
+           );
+       
+           res.status(200).json({
+               status: 'success',
+               product: updatedProduct 
+           });
     } catch (error) {
         res.status(500).json({
             status: 'error',
@@ -119,42 +163,6 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
             error: error.message
         });
     }
-
-    const updateData = { ...req.body };
-
-    // Handle cover image update if provided
-    if (req.files?.imageCover) {
-        const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
-        updateData.imageCover = coverResult.url;
-    }
-
-    // Handle additional images update if provided
-    if (req.files?.images) {
-        const newImages = [];
-        for (const file of req.files.images) {
-            const result = await uploadToCloudinary(file, 'products');
-            newImages.push({
-                url: result.url,
-                alt: req.body.title || product.title,
-                isPrimary: newImages.length === 0
-            });
-        }
-        // Combine existing and new images if requested
-        updateData.images = req.body.keepExistingImages ?
-            [...(product.images || []), ...newImages] :
-            newImages;
-    }
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-        req.params.id,
-        updateData,
-        { new: true, runValidators: true }
-    );
-
-    res.status(200).json({
-        status: 'success',
-        data: { product: updatedProduct }
-    });
 });
 
 // Delete product
