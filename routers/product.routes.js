@@ -299,9 +299,8 @@ router.route('/:productId/variants')
         isAuthenticated,
         authorizeAdmin,
         upload.fields([
-            { name: 'images', maxCount: 5 },
-            { name: 'colorImage', maxCount: 1 }
-        ]),
+            { name: 'images', maxCount: 5 }
+                ]),
         variantController.addVariant
     )
     .get(variantController.getVariants);
@@ -359,7 +358,6 @@ router
         isAuthenticated,
         authorizeAdmin,
         upload.fields([
-            { name: 'colorImage', maxCount: 1 },
             { name: 'images', maxCount: 5 }
         ]),
         variantController.updateVariant

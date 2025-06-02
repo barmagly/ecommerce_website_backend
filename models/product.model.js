@@ -12,19 +12,10 @@ const productVariantSchema = new mongoose.Schema({
         ref: 'Product',
         required: true
     },
-    color: {
-        name: String,
-        code: String,
-        image: String
-    },
-    size: {
-        name: String,
-        code: String,
-        dimensions: {
-            length: Number,
-            width: Number,
-            height: Number
-        }
+    attributes: {   
+        type: Map,
+        of: String, // Using Map to store dynamic attributes
+        required: true      
     },
     price: {
         type: Number,
@@ -43,7 +34,7 @@ const productVariantSchema = new mongoose.Schema({
     },
     inStock: {
         type: Boolean,
-        default: function() {
+        default: function () {
             return this.quantity > 0;
         }
     },
@@ -55,87 +46,64 @@ const productVariantSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-save middleware for variant
-productVariantSchema.pre('save', function(next) {
+productVariantSchema.pre('save', function (next) {
     // Update inStock based on quantity
     this.inStock = this.quantity > 0;
     next();
 });
 
+const attributeSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  values: { type: [String], required: true }
+}, { _id: false });
+
+
 // Product Schema
 const productSchema = new mongoose.Schema({
-    title: {
+    name: {
         type: String,
         required: true,
         trim: true,
         minlength: [3, 'Too short product title'],
         maxlength: [200, 'Too long product title']
     },
-    slug: {
-        type: String,
-        required: false,
-        lowercase: true
-    },
     description: {
         type: String,
         required: [true, 'Product description is required'],
         minlength: [20, 'Too short product description']
     },
-    bulletPoints: [{
-        type: String,
-        maxlength: [200, 'Bullet point too long']
-    }],
     brand: {
         type: String,
         required: [true, 'Brand is required']
     },
-    model: String,
     category: {
         type: mongoose.Schema.ObjectId,
         ref: 'Category',
         required: [true, 'Product must belong to a category']
     },
-    subcategory: {
-        type: mongoose.Schema.ObjectId,
-        ref: 'Category'
-    },
-    basePrice: {
+    price: {
         type: Number,
-        required: [true, 'Base product price is required'],
-        min: [0, 'Price cannot be negative']
-    },
-    baseAttributes: {
-        material: String,
-        weight: Number,
-        dimensions: {
-            length: Number,
-            width: Number,
-            height: Number,
-            unit: {
-                type: String,
-                enum: ['cm', 'inch'],
-                default: 'cm'
-            }
+        required: function () {
+            return !this.hasVariants;
         }
     },
-    options: {
-        colors: [{
-            name: String,
-            code: String,
-            image: String
-        }],
-        sizes: [{
-            name: String,
-            code: String,
-            dimensions: {
-                length: Number,
-                width: Number,
-                height: Number
-            }
-        }]
+    hasVariants: {
+        type: Boolean,
+        default: false
     },
-    totalVariants: {
+    stock: {
         type: Number,
-        default: 0
+        required: function () {
+            return !this.hasVariants;
+        }
+    },
+    sku: {
+        type: String,
+        required: function () {
+            return !this.hasVariants;
+        },       
+        unique: true,
+        trim: true
     },
     ratings: {
         average: {
@@ -157,10 +125,6 @@ const productSchema = new mongoose.Schema({
             5: { type: Number, default: 0 }
         }
     },
-    isParent: {
-        type: Boolean,
-            default: false
-        },
     images: [{
         url: String,
         alt: String,
@@ -169,44 +133,6 @@ const productSchema = new mongoose.Schema({
     imageCover: {
         type: String,
         required: [true, 'Product image cover is required']
-    },
-    shipping: {
-        weight: Number,
-        dimensions: {
-            length: Number,
-            width: Number,
-            height: Number,
-            unit: {
-                type: String,
-                enum: ['cm', 'inch'],
-                default: 'cm'
-            }
-        },
-        freeShipping: {
-            type: Boolean,
-            default: false
-        },
-        shippingClass: {
-            type: String,
-            enum: ['light', 'medium', 'heavy', 'custom'],
-            default: 'medium'
-        },
-        shippingCost: {
-            type: Number,
-            default: 0
-        },
-        estimatedDays: {
-            min: Number,
-            max: Number
-        }
-    },
-    warranty: {
-        available: {
-            type: Boolean,
-            default: false
-        },
-        duration: String,
-        coverage: String
     },
     features: [{
         name: String,
@@ -219,26 +145,22 @@ const productSchema = new mongoose.Schema({
             value: String
         }]
     }],
-    seo: {
-        metaTitle: String,
-        metaDescription: String,
-        keywords: [String]
-    }
+     attributes: [attributeSchema],
 },
-{
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
-});
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    });
 
 // Update inStock when quantity changes
-productSchema.pre('save', function(next) {
+productSchema.pre('save', function (next) {
     this.inStock = this.quantity > 0;
     next();
 });
 
 // Ensure primary image is unique
-productSchema.pre('save', function(next) {
+productSchema.pre('save', function (next) {
     const primaryImages = this.images.filter(img => img.isPrimary);
     if (primaryImages.length > 1) {
         const firstPrimary = primaryImages[0];
@@ -259,7 +181,7 @@ productSchema.virtual('productVariants', {
 });
 
 // Pre-save middleware to generate slug and update inStock
-productSchema.pre('save', function(next) {
+productSchema.pre('save', function (next) {
     if (this.title) {
         this.slug = this.title.toLowerCase().replace(/ /g, '-');
     }

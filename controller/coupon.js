@@ -2,7 +2,7 @@ const Coupon = require('../models/coupon.model');
 
 const getAllCoupons = async (req, res, next) => {
     try {
-        const coupons = await Coupon.finds();
+        const coupons = await Coupon.find();
         res.status(200).json({ status: 'success', coupons });
     } catch (err) {
         res.status(500).json({

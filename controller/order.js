@@ -1,5 +1,6 @@
 const Order = require('../models/order.model');
 const Cart = require('../models/cart.model');
+const { Product } = require('../models/product.model');
 
 const getAllOrders = async (req, res, next) => {
     try {
@@ -47,27 +48,31 @@ const getUserOrders = async (req, res, next) => {
 
 const createOrder = async (req, res, next) => {
     try {
-        const { userId, items, shippingAddress, paymentMethod } = req.body;
+        const userId= req.user._id; // Assuming user ID is available in req.user
+        const { shippingAddress } = req.body;
 
         // Calculate total amount
-        const total = items.reduce((sum, item) => {
-            return sum + (item.price * item.quantity);
-        }, 0);
+       
+        const cart = await Cart.findOne({ userID: userId })
 
         const order = await Order.create({
-            user: userId,
-            items,
-            total,
+            user: userId, // Assuming user ID is available in req.user
+            items: cart.cartItems,
+            total: cart.total,
             shippingAddress,
-            paymentMethod,
             status: 'pending'
         });
 
         // Clear user's cart after successful order creation
-        await Cart.findOneAndUpdate(
-            { user: userId },
-            { $set: { items: [] } }
-        );
+        await Cart.findOneAndDelete({ userID: userId });
+
+        for (const item of order.items) {
+        const product = await Product.findById(item.product);
+        if (product) {
+        //   product. -= item.quantity;
+          await product.save();
+        }
+      }
 
         const populatedOrder = await order
             .populate('user')

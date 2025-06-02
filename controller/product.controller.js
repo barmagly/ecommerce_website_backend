@@ -29,23 +29,16 @@ exports.createProduct = catchAsync(async (req, res, next) => {
         // Create the main product
         const product = await Product.create({
             ...req.body,
-            isParent: true,
-            totalVariants: 0,
+            hasVariants: false,
             images: productImages,
             imageCover: coverResult.url
         });
 
         // If variants are provided, create them
-        if (req.body.variants && Array.isArray(req.body.variants)) {
-            const variants = req.body.variants.map(variant => ({
-                ...variant,
-                product: product._id
-            }));
-            const createdVariants = await ProductVariant.insertMany(variants);
-
+        if (req.body.variants) {
             // Update product with total variants count
             await Product.findByIdAndUpdate(product._id, {
-                totalVariants: createdVariants.length
+            hasVariants: true,
             });
         }
 
@@ -70,7 +63,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 exports.getAllProducts = catchAsync(async (req, res, next) => {
     try {
 
-        const products = await Product.finds()
+        const products = await Product.find()
             .populate('productVariants')
             .sort('-createdAt');
 
@@ -141,9 +134,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
                    });
                }
                // Combine existing and new images if requested
-               updateData.images = req.body.keepExistingImages ? 
-                   [...(product.images || []), ...newImages] : 
-                   newImages;
+               updateData.images = [...(product.images || []), ...newImages];
            }
        
            const updatedProduct = await Product.findByIdAndUpdate(
