@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const User = require('../models/user.model');
-
+const {Product, ProductVariant}=require('../models/product.model');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Generate JWT Token
@@ -192,7 +192,10 @@ const deleteUser = async (req, res, next) => {
 const addToWishlist = async (req, res, next) => {
     try {
         const { productId } = req.params;
-        
+        const product = await Product.findById(productId);
+        if (!product) { 
+            return res.status(404).json({ message: 'Product not found' });
+        }
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { $addToSet: { wishlist: productId } },
@@ -210,8 +213,11 @@ const addToWishlist = async (req, res, next) => {
 
 const removeFromWishlist = async (req, res, next) => {
     try {
-        const { productId } = req.params;
-        
+        const { productId } = req.params;    
+        const product = await Product.findById(productId);
+        if (!product) { 
+            return res.status(404).json({ message: 'Product not found' });
+        }  
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { $pull: { wishlist: productId } },
