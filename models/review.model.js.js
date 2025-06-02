@@ -1,24 +1,24 @@
 const mongoose = require('mongoose');
-const Product = require('./product.model.js');
+const { Product, ProductVariant } = require('../models/product.model');
 
 const reviewSchema = new mongoose.Schema(
     {
-        title: {
+        comment: {
             type: String,
         },
-        ratings: {
+        rating: {
             type: Number,
             min: [1, 'Min ratings value is 1.0'],
             max: [5, 'Max ratings value is 5.0'],
             required: [true, 'review ratings required'],
         },
-        user: {
+        userId: {
             type: mongoose.Schema.ObjectId,
             ref: 'User',
             required: [true, 'Review must belong to user'],
         },
         // parent reference (one to many)
-        product: {
+        productId: {
             type: mongoose.Schema.ObjectId,
             ref: 'Product',
             required: [true, 'Review must belong to product'],

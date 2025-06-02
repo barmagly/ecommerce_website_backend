@@ -18,46 +18,23 @@ const {
  *     Coupon:
  *       type: object
  *       required:
- *         - code
  *         - discount
- *         - validFrom
- *         - validUntil
+ *         - expire
+ *         - name
  *       properties:
  *         _id:
  *           type: string
- *           description: Auto-generated MongoDB ID
- *         code:
- *           type: string
- *           description: Coupon code
- *         description:
- *           type: string
- *           description: Coupon description
+ *           description: Auto-generated MongoDB ID  
  *         discount:
  *           type: number
  *           description: Discount percentage
- *         validFrom:
- *           type: string
- *           format: date-time
- *           description: Start date of coupon validity
- *         validUntil:
- *           type: string
- *           format: date-time
- *           description: End date of coupon validity
- *         minPurchase:
- *           type: number
- *           description: Minimum purchase amount required
- *         maxDiscount:
- *           type: number
- *           description: Maximum discount amount
- *         usageLimit:
- *           type: number
- *           description: Maximum number of times coupon can be used
- *         usedCount:
- *           type: number
- *           description: Number of times coupon has been used
- *         active:
- *           type: boolean
- *           description: Whether the coupon is active
+ *        expire:
+ *          type: string
+ *          format: date-time
+ *          description: Expiration date of the coupon
+ *        name:
+ *          type: string
+ *         description: Unique coupon code
  */
 
 /**
@@ -99,29 +76,17 @@ const {
  *           schema:
  *             type: object
  *             required:
- *               - code
  *               - discount
- *               - validFrom
- *               - validUntil
+ *               - name
+ *               - expire
  *             properties:
- *               code:
- *                 type: string
- *               description:
+ *               name:
  *                 type: string
  *               discount:
  *                 type: number
- *               validFrom:
+ *               expire:
  *                 type: string
  *                 format: date-time
- *               validUntil:
- *                 type: string
- *                 format: date-time
- *               minPurchase:
- *                 type: number
- *               maxDiscount:
- *                 type: number
- *               usageLimit:
- *                 type: number
  *     responses:
  *       201:
  *         description: Coupon created successfully
@@ -155,13 +120,7 @@ const {
  *         required: true
  *         schema:
  *           type: string
- *         description: Coupon code
- *       - in: query
- *         name: amount
- *         required: true
- *         schema:
- *           type: number
- *         description: Cart amount to validate against
+ *         description: Coupon name
  *     responses:
  *       200:
  *         description: Coupon validation result
@@ -241,26 +200,13 @@ const {
  *           schema:
  *             type: object
  *             properties:
- *               code:
- *                 type: string
- *               description:
+ *               name:
  *                 type: string
  *               discount:
  *                 type: number
- *               validFrom:
+ *               expire:
  *                 type: string
  *                 format: date-time
- *               validUntil:
- *                 type: string
- *                 format: date-time
- *               minPurchase:
- *                 type: number
- *               maxDiscount:
- *                 type: number
- *               usageLimit:
- *                 type: number
- *               active:
- *                 type: boolean
  *     responses:
  *       200:
  *         description: Coupon updated successfully
@@ -304,7 +250,7 @@ const {
  */
 
 // Public routes
-router.post('/validate', validateCoupon);
+router.get('/validate/:name', validateCoupon);
 
 // Admin routes (requires both authentication and admin role)
 router.use(isAuthenticated, authorizeAdmin);

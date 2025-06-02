@@ -144,11 +144,11 @@ const {
  *           schema:
  *             type: object
  *             required:
- *               - product
+ *               - productId
  *               - rating
  *               - comment
  *             properties:
- *               product:
+ *               productId:
  *                 type: string
  *               rating:
  *                 type: number
@@ -245,7 +245,7 @@ const {
 
 // Public routes
 router.get('/', getAllReviews);
-router.get('/:id', getReviewById);
+router.get('/:reviewId', getReviewById);
 router.get('/product/:productId', getProductReviews);
 
 // Authenticated routes

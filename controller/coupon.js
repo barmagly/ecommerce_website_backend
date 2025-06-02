@@ -27,18 +27,13 @@ const getCouponById = async (req, res, next) => {
 const createCoupon = async (req, res, next) => {
     try {
         const {
-            code,
-            discountType,
-            discountValue,
-            minPurchase,
-            maxDiscount,
-            startDate,
-            endDate,
-            usageLimit
+            name,
+            expire,
+            discount
         } = req.body;
 
         // Check if coupon code already exists
-        const existingCoupon = await Coupon.findOne({ code });
+        const existingCoupon = await Coupon.findOne({ name });
         if (existingCoupon) {
             return res.status(400).json({
                 message: "Coupon code already exists"
@@ -46,15 +41,9 @@ const createCoupon = async (req, res, next) => {
         }
 
         const coupon = await Coupon.create({
-            code,
-            discountType,
-            discountValue,
-            minPurchase,
-            maxDiscount,
-            startDate,
-            endDate,
-            usageLimit,
-            usageCount: 0
+            name,
+            expire,
+            discount
         });
 
         res.status(201).json({ status: 'success', data: coupon });
@@ -99,9 +88,9 @@ const deleteCoupon = async (req, res, next) => {
 
 const validateCoupon = async (req, res, next) => {
     try {
-        const { code, cartTotal } = req.body;
+        const { name } = req.params;
         
-        const coupon = await Coupon.findOne({ code });
+        const coupon = await Coupon.findOne({ name });
         
         if (!coupon) {
             return res.status(404).json({ message: "Invalid coupon code" });
@@ -109,38 +98,14 @@ const validateCoupon = async (req, res, next) => {
 
         // Check if coupon is active
         const now = new Date();
-        if (now < coupon.startDate || now > coupon.endDate) {
-            return res.status(400).json({ message: "Coupon has expired or not yet active" });
-        }
-
-        // Check usage limit
-        if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-            return res.status(400).json({ message: "Coupon usage limit reached" });
-        }
-
-        // Check minimum purchase requirement
-        if (coupon.minPurchase && cartTotal < coupon.minPurchase) {
-            return res.status(400).json({
-                message: `Minimum purchase amount of ${coupon.minPurchase} required`
-            });
-        }
-
-        // Calculate discount
-        let discount = 0;
-        if (coupon.discountType === 'percentage') {
-            discount = (cartTotal * coupon.discountValue) / 100;
-            if (coupon.maxDiscount) {
-                discount = Math.min(discount, coupon.maxDiscount);
-            }
-        } else {
-            discount = coupon.discountValue;
+        if (now > coupon.expire) {
+            return res.status(400).json({ message: "Coupon has expired" });
         }
 
         res.status(200).json({
             status: 'success',
             data: {
                 valid: true,
-                discount,
                 coupon
             }
         });
