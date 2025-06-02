@@ -10,7 +10,14 @@ exports.addVariant = catchAsync(async (req, res, next) => {
     if (!product) {
         return next(new AppError('No product found with that ID', 404));
     }
-
+    const variantt = await ProductVariant.findOne({ sku: req.body.sku });
+    if (variantt) {
+        return res.status(400).json({
+            success: false,
+            status: 'error',
+            message: 'Variant with this SKU already exists'
+        });
+    }
     // Upload images if provided
     let variantImages = [];
     let colorImageUrl;
@@ -85,7 +92,14 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
     }
 
     const updateData = { ...req.body };
-
+    // const variantt = await ProductVariant.findOne({ sku: req.body.sku });
+    // if (variantt) {
+    //     return res.status(400).json({
+    //         success: false,
+    //         status: 'error',
+    //         message: 'Variant with this SKU already exists'
+    //     });
+    // }
     // Handle color image update if provided
     if (req.files?.colorImage) {
         const colorResult = await uploadToCloudinary(req.files.colorImage[0], 'colors');
@@ -105,8 +119,8 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
             });
         }
         // Combine existing and new images if requested
-        updateData.images = req.body.keepExistingImages ? 
-            [...(variant.images || []), ...newImages] : 
+        updateData.images = req.body.keepExistingImages ?
+            [...(variant.images || []), ...newImages] :
             newImages;
     }
 
