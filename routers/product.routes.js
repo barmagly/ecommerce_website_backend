@@ -185,7 +185,10 @@ router.use(authorizeAdmin);
  *       403:
  *         description: Admin access required
  */
-router.post('/', isAuthenticated, authorizeAdmin, upload.array('images', 5), productController.createProduct);
+router.post('/', isAuthenticated, authorizeAdmin, upload.fields([
+    { name: 'imageCover', maxCount: 1 },
+    { name: 'images', maxCount: 5 }
+]), productController.createProduct);
 
 /**
  * @swagger

@@ -4,11 +4,18 @@ const AppError = require('../utils/appError');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
 // Create a new product with variants
-exports.createProduct = catchAsync(async (req, res) => {
-    // Upload images if provided
+exports.createProduct = catchAsync(async (req, res, next) => {
+    if (!req.files || !req.files.imageCover) {
+        return next(new AppError('Image cover is required', 400));
+    }
+
+    // Upload cover image first
+    const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
+    
+    // Upload additional images if provided
     let productImages = [];
-    if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
+    if (req.files.images) {
+        for (const file of req.files.images) {
             const result = await uploadToCloudinary(file, 'products');
             productImages.push({
                 url: result.url,
@@ -23,7 +30,8 @@ exports.createProduct = catchAsync(async (req, res) => {
         ...req.body,
         isParent: true,
         totalVariants: 0,
-        images: productImages
+        images: productImages,
+        imageCover: coverResult.url
     });
 
     // If variants are provided, create them
