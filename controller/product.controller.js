@@ -86,18 +86,46 @@ exports.getProduct = catchAsync(async (req, res, next) => {
 
 // Update product
 exports.updateProduct = catchAsync(async (req, res, next) => {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true
-    });
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
         return next(new AppError('No product found with that ID', 404));
     }
 
+    const updateData = { ...req.body };
+
+    // Handle cover image update if provided
+    if (req.files?.imageCover) {
+        const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
+        updateData.imageCover = coverResult.url;
+    }
+
+    // Handle additional images update if provided
+    if (req.files?.images) {
+        const newImages = [];
+        for (const file of req.files.images) {
+            const result = await uploadToCloudinary(file, 'products');
+            newImages.push({
+                url: result.url,
+                alt: req.body.title || product.title,
+                isPrimary: newImages.length === 0
+            });
+        }
+        // Combine existing and new images if requested
+        updateData.images = req.body.keepExistingImages ? 
+            [...(product.images || []), ...newImages] : 
+            newImages;
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        { new: true, runValidators: true }
+    );
+
     res.status(200).json({
         status: 'success',
-        data: { product }
+        data: { product: updatedProduct }
     });
 });
 

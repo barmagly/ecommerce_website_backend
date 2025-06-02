@@ -233,8 +233,16 @@ router.post('/', isAuthenticated, authorizeAdmin, upload.fields([
  */
 router
     .route('/:id')
-    .patch(productController.updateProduct)
-    .delete(productController.deleteProduct);
+    .patch(
+        isAuthenticated,
+        authorizeAdmin,
+        upload.fields([
+            { name: 'imageCover', maxCount: 1 },
+            { name: 'images', maxCount: 5 }
+        ]),
+        productController.updateProduct
+    )
+    .delete(isAuthenticated, authorizeAdmin, productController.deleteProduct);
 
 /**
  * @swagger
@@ -347,7 +355,15 @@ router.route('/:productId/variants')
  */
 router
     .route('/:productId/variants/:variantId')
-    .patch(isAuthenticated, authorizeAdmin, variantController.updateVariant)
+    .patch(
+        isAuthenticated,
+        authorizeAdmin,
+        upload.fields([
+            { name: 'colorImage', maxCount: 1 },
+            { name: 'images', maxCount: 5 }
+        ]),
+        variantController.updateVariant
+    )
     .delete(isAuthenticated, authorizeAdmin, variantController.deleteVariant);
 
 /**

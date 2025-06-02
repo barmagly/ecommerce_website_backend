@@ -75,24 +75,50 @@ exports.getVariants = catchAsync(async (req, res, next) => {
 
 // Update variant
 exports.updateVariant = catchAsync(async (req, res, next) => {
-    const variant = await ProductVariant.findOneAndUpdate(
-        { 
-            _id: req.params.variantId,
-            product: req.params.productId
-        },
-        req.body,
-        { new: true, runValidators: true }
-    );
+    const variant = await ProductVariant.findOne({
+        _id: req.params.variantId,
+        product: req.params.productId
+    });
 
     if (!variant) {
         return next(new AppError('No variant found with that ID for this product', 404));
     }
 
+    const updateData = { ...req.body };
+
+    // Handle color image update if provided
+    if (req.files?.colorImage) {
+        const colorResult = await uploadToCloudinary(req.files.colorImage[0], 'colors');
+        if (!updateData.color) updateData.color = { ...variant.color };
+        updateData.color.image = colorResult.url;
+    }
+
+    // Handle variant images update if provided
+    if (req.files?.images) {
+        const newImages = [];
+        for (const file of req.files.images) {
+            const result = await uploadToCloudinary(file, 'variants');
+            newImages.push({
+                url: result.url,
+                alt: req.body.sku || variant.sku,
+                isPrimary: newImages.length === 0
+            });
+        }
+        // Combine existing and new images if requested
+        updateData.images = req.body.keepExistingImages ? 
+            [...(variant.images || []), ...newImages] : 
+            newImages;
+    }
+
+    const updatedVariant = await ProductVariant.findOneAndUpdate(
+        { _id: req.params.variantId, product: req.params.productId },
+        updateData,
+        { new: true, runValidators: true }
+    );
+
     res.status(200).json({
         status: 'success',
-        data: {
-            variant
-        }
+        data: { variant: updatedVariant }
     });
 });
 
@@ -135,7 +161,7 @@ exports.updateStock = catchAsync(async (req, res, next) => {
     res.status(200).json({
         status: 'success',
         data: {
-            variant
+            variant: updatedVariant
         }
     });
 });
