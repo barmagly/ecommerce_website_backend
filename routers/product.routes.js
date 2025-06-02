@@ -284,7 +284,15 @@ router
  *         description: Variant added successfully
  */
 router.route('/:productId/variants')
-    .post(isAuthenticated, authorizeAdmin, upload.array('images', 5), variantController.addVariant)
+    .post(
+        isAuthenticated,
+        authorizeAdmin,
+        upload.fields([
+            { name: 'images', maxCount: 5 },
+            { name: 'colorImage', maxCount: 1 }
+        ]),
+        variantController.addVariant
+    )
     .get(variantController.getVariants);
 
 /**

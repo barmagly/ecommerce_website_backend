@@ -13,23 +13,44 @@ exports.addVariant = catchAsync(async (req, res, next) => {
 
     // Upload images if provided
     let variantImages = [];
-    if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-            const result = await uploadToCloudinary(file, 'variants');
-            variantImages.push({
-                url: result.url,
-                alt: req.body.sku,
-                isPrimary: variantImages.length === 0 // First image is primary
-            });
+    let colorImageUrl;
+
+    if (req.files) {
+        // Handle color image
+        if (req.files.colorImage && req.files.colorImage[0]) {
+            const colorResult = await uploadToCloudinary(req.files.colorImage[0], 'colors');
+            colorImageUrl = colorResult.url;
+        }
+
+        // Handle product variant images
+        if (req.files.images) {
+            for (const file of req.files.images) {
+                const result = await uploadToCloudinary(file, 'variants');
+                variantImages.push({
+                    url: result.url,
+                    alt: req.body.sku,
+                    isPrimary: variantImages.length === 0 // First image is primary
+                });
+            }
         }
     }
 
-    // Create new variant
-    const variant = await ProductVariant.create({
+    // Create new variant with color image
+    const variantData = {
         ...req.body,
         product: product._id,
         images: variantImages
-    });
+    };
+
+    // Add color image URL if it was uploaded
+    if (colorImageUrl && req.body.color) {
+        variantData.color = {
+            ...req.body.color,
+            image: colorImageUrl
+        };
+    }
+
+    const variant = await ProductVariant.create(variantData);
 
     res.status(201).json({
         status: 'success',

@@ -10,7 +10,11 @@ cloudinary.config({
 // Upload file to Cloudinary
 const uploadToCloudinary = async (file, folder) => {
     try {
-        const result = await cloudinary.uploader.upload(file.path, {
+        // Convert buffer to base64
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        
+        const result = await cloudinary.uploader.upload(dataURI, {
             folder: folder,
             resource_type: 'auto'
         });
@@ -19,6 +23,7 @@ const uploadToCloudinary = async (file, folder) => {
             public_id: result.public_id
         };
     } catch (error) {
+        console.error('Cloudinary upload error:', error);
         throw new Error('Error uploading to Cloudinary');
     }
 };
