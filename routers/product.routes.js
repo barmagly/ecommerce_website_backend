@@ -185,7 +185,10 @@ router.use(authorizeAdmin);
  *       403:
  *         description: Admin access required
  */
-router.post('/', isAuthenticated, authorizeAdmin, upload.array('images', 5), productController.createProduct);
+router.post('/', isAuthenticated, authorizeAdmin, upload.fields([
+    { name: 'imageCover', maxCount: 1 },
+    { name: 'images', maxCount: 5 }
+]), productController.createProduct);
 
 /**
  * @swagger
@@ -230,8 +233,16 @@ router.post('/', isAuthenticated, authorizeAdmin, upload.array('images', 5), pro
  */
 router
     .route('/:id')
-    .patch(productController.updateProduct)
-    .delete(productController.deleteProduct);
+    .patch(
+        isAuthenticated,
+        authorizeAdmin,
+        upload.fields([
+            { name: 'imageCover', maxCount: 1 },
+            { name: 'images', maxCount: 5 }
+        ]),
+        productController.updateProduct
+    )
+    .delete(isAuthenticated, authorizeAdmin, productController.deleteProduct);
 
 /**
  * @swagger
@@ -284,7 +295,15 @@ router
  *         description: Variant added successfully
  */
 router.route('/:productId/variants')
-    .post(isAuthenticated, authorizeAdmin, upload.array('images', 5), variantController.addVariant)
+    .post(
+        isAuthenticated,
+        authorizeAdmin,
+        upload.fields([
+            { name: 'images', maxCount: 5 },
+            { name: 'colorImage', maxCount: 1 }
+        ]),
+        variantController.addVariant
+    )
     .get(variantController.getVariants);
 
 /**
@@ -336,7 +355,15 @@ router.route('/:productId/variants')
  */
 router
     .route('/:productId/variants/:variantId')
-    .patch(isAuthenticated, authorizeAdmin, variantController.updateVariant)
+    .patch(
+        isAuthenticated,
+        authorizeAdmin,
+        upload.fields([
+            { name: 'colorImage', maxCount: 1 },
+            { name: 'images', maxCount: 5 }
+        ]),
+        variantController.updateVariant
+    )
     .delete(isAuthenticated, authorizeAdmin, variantController.deleteVariant);
 
 /**

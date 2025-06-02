@@ -14,7 +14,8 @@ const {
     addToWishlist,
     removeFromWishlist,
     addAddress,
-    removeAddress
+    removeAddress,
+    googleLogin
 } = require('../controller/user');
 
 /**
@@ -162,6 +163,7 @@ const {
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+router.post('/google-login', googleLogin);
 
 /**
  * @swagger
