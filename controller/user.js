@@ -79,7 +79,7 @@ const getAllUsers = async (req, res, next) => {
         const users = await User.find().select('-password');
         res.status(200).json({
             status: 'success',
-            data: users
+            users
         });
     } catch (err) {
         next({ message: 'Failed to retrieve users', error: err.message });
@@ -142,7 +142,7 @@ const updateUser = async (req, res, next) => {
 
         res.status(200).json({
             status: 'success',
-            data: user
+            user
         });
     } catch (err) {
         next({ message: 'Failed to update user', error: err.message });
@@ -174,15 +174,15 @@ const updatePassword = async (req, res, next) => {
 const deleteUser = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const user = await User.findByIdAndDelete(id);
-
+        const user = await User.findById(id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
+         user = await User.findByIdAndDelete(id);
+
 
         res.status(204).json({
-            status: 'success',
-            data: null
+            status: 'success delete'
         });
     } catch (err) {
         next({ message: 'Failed to delete user', error: err.message });

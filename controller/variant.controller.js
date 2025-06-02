@@ -6,7 +6,7 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 // Add variant to product
 exports.addVariant = catchAsync(async (req, res, next) => {
     const product = await Product.findById(req.params.productId);
-    
+
     if (!product) {
         return next(new AppError('No product found with that ID', 404));
     }
@@ -54,18 +54,19 @@ exports.getVariants = catchAsync(async (req, res, next) => {
 
 // Update variant
 exports.updateVariant = catchAsync(async (req, res, next) => {
-    const variant = await ProductVariant.findOneAndUpdate(
-        { 
+
+    const variant = await ProductVariant.findById(req.params.variantId);
+    if (!variant) {
+        return next(new AppError('No variant found with that ID for this product', 404));
+    }
+    variant = await ProductVariant.findOneAndUpdate(
+        {
             _id: req.params.variantId,
             product: req.params.productId
         },
         req.body,
         { new: true, runValidators: true }
     );
-
-    if (!variant) {
-        return next(new AppError('No variant found with that ID for this product', 404));
-    }
 
     res.status(200).json({
         status: 'success',
@@ -77,14 +78,15 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
 
 // Delete variant
 exports.deleteVariant = catchAsync(async (req, res, next) => {
-    const variant = await ProductVariant.findOneAndDelete({
-        _id: req.params.variantId,
-        product: req.params.productId
-    });
 
+    const variant = await ProductVariant.findById(req.params.variantId);
     if (!variant) {
         return next(new AppError('No variant found with that ID for this product', 404));
     }
+    variant = await ProductVariant.findOneAndDelete({
+        _id: req.params.variantId,
+        product: req.params.productId
+    });
 
     res.status(204).json({
         status: 'success',
@@ -98,8 +100,12 @@ exports.updateStock = catchAsync(async (req, res, next) => {
         return next(new AppError('Please provide a valid quantity', 400));
     }
 
-    const variant = await ProductVariant.findOneAndUpdate(
-        { 
+    const variant = await ProductVariant.findById(req.params.variantId);
+    if (!variant) {
+        return next(new AppError('No variant found with that ID for this product', 404));
+    }
+    variant = await ProductVariant.findOneAndUpdate(
+        {
             _id: req.params.variantId,
             product: req.params.productId
         },
@@ -107,9 +113,6 @@ exports.updateStock = catchAsync(async (req, res, next) => {
         { new: true, runValidators: true }
     );
 
-    if (!variant) {
-        return next(new AppError('No variant found with that ID for this product', 404));
-    }
 
     res.status(200).json({
         status: 'success',

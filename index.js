@@ -44,6 +44,8 @@ app.use('/api/coupons', couponRouter);
 
 // Error handling middleware
 app.use((err,req,res,next)=>{
+    console.log(`Error occurred: ${err.message}`);
+    
     res.json(err).status(500)
 })
 

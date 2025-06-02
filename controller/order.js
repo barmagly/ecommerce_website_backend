@@ -6,9 +6,10 @@ const getAllOrders = async (req, res, next) => {
         const orders = await Order.find()
             .populate('user')
             .populate('items.product');
-        res.status(200).json({ status: 'success', data: orders });
+        res.status(200).json({ status: 'success', orders });
     } catch (err) {
-        next({ message: "Failed to retrieve orders", error: err.message });
+        res.status(500).json({
+            status: 'error', message: "Failed to retrieve orders", error: err.message });
     }
 };
 
@@ -23,9 +24,10 @@ const getOrderById = async (req, res, next) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        res.status(200).json({ status: 'success', data: order });
+        res.status(200).json({ status: 'success', order });
     } catch (err) {
-        next({ message: "Failed to retrieve order", error: err.message });
+        res.status(500).json({
+            status: 'error', message: "Failed to retrieve order", error: err.message });
     }
 };
 
@@ -36,9 +38,10 @@ const getUserOrders = async (req, res, next) => {
             .populate('items.product')
             .sort('-createdAt');
             
-        res.status(200).json({ status: 'success', data: orders });
+        res.status(200).json({ status: 'success', orders });
     } catch (err) {
-        next({ message: "Failed to retrieve user orders", error: err.message });
+        res.status(500).json({
+            status: 'error', message: "Failed to retrieve user orders", error: err.message });
     }
 };
 
@@ -70,9 +73,10 @@ const createOrder = async (req, res, next) => {
             .populate('user')
             .populate('items.product');
 
-        res.status(201).json({ status: 'success', data: populatedOrder });
+        res.status(201).json({ status: 'success', populatedOrder });
     } catch (err) {
-        next({ message: "Failed to create order", error: err.message });
+        res.status(500).json({
+            status: 'error', message: "Failed to create order", error: err.message });
     }
 };
 
@@ -91,9 +95,10 @@ const updateOrderStatus = async (req, res, next) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        res.status(200).json({ status: 'success', data: order });
+        res.status(200).json({ status: 'success', order });
     } catch (err) {
-        next({ message: "Failed to update order status", error: err.message });
+        res.status(500).json({
+            status: 'error', message: "Failed to update order status", error: err.message });
     }
 };
 
@@ -120,9 +125,10 @@ const cancelOrder = async (req, res, next) => {
             .populate('user')
             .populate('items.product');
 
-        res.status(200).json({ status: 'success', data: populatedOrder });
+        res.status(200).json({ status: 'success', populatedOrder });
     } catch (err) {
-        next({ message: "Failed to cancel order", error: err.message });
+        res.status(500).json({
+            status: 'error', message: "Failed to cancel order", error: err.message });
     }
 };
 

@@ -1,121 +1,81 @@
-const Cart = require('../models/cart.model');
+const CartModel = require("../models/cart.model");
+const {Product,ProductVariant} = require("../models/product.model");
+//200 => ok              //201 => created
+//202 => accepted        //400 => bad request
+//401 => unauthorized    //403 => forbidden     //404 => not found
 
-const getCart = async (req, res, next) => {
+let getCurrentUserCart = async (req, res) => {
     try {
-        const { userId } = req.params;
-        const cart = await Cart.findOne({ user: userId }).populate('items.product');
-        
+        if (req.user.role !== 'user') {
+            return res.status(403).json("Only Users can delete cart");
+        }
+        let userCart = await CartModel.find({ userID: req.user.id });
+        res.status(200).json(userCart);
+    } catch (error) {
+        res.status(500).json({ message: "Failed get user cart", error: error.message });
+    }
+}
+
+let clearCart = async (req, res) => {
+    try {
+        if (req.user.role !== 'user') {
+            return res.status(403).json("Only Users can delete cart");
+        }
+        const { id } = req.params
+        let cart = await CartModel.findOneAndDelete({ _id: id, userID: req.user.id });
         if (!cart) {
-            return res.status(404).json({ message: "Cart not found" });
+            return res.status(403).json({ message: "Users can delete thier carts only or cart not found" });
+        }
+        res.status(200).json({ message: "cart deleted" });
+    } catch (error) {
+        res.status(500).json({ message: "Failed clear cart", error: error.message });
+    }
+}
+
+let addTOCart = async (req, res) => {
+    try {
+        if (req.user.role !== 'user') {
+            return res.status(403).json("Only Users can add to cart");
         }
         
-        res.status(200).json({ status: 'success', data: cart });
-    } catch (err) {
-        next({ message: "Failed to retrieve cart", error: err.message });
-    }
-};
+        const { prdID, quantity } = req.body;
+        let cart = await CartModel.findOne({ userID: req.user.id });
 
-const addToCart = async (req, res, next) => {
-    try {
-        const { userId } = req.params;
-        const { productId, quantity } = req.body;
-
-        let cart = await Cart.findOne({ user: userId });
-        
         if (!cart) {
-            cart = await Cart.create({
-                user: userId,
-                items: [{ product: productId, quantity }]
-            });
+            cart = new CartModel({userID: req.user.id,cartItems:[]});
+        }
+        let existingItem = cart.cartItems.find(item => item.prdID == prdID);
+        if (existingItem) {
+            existingItem.quantity += quantity;
         } else {
-            const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
-            
-            if (itemIndex > -1) {
-                cart.items[itemIndex].quantity += quantity;
-            } else {
-                cart.items.push({ product: productId, quantity });
-            }
-            
-            await cart.save();
+            cart.cartItems.push({ prdID, quantity });
         }
-
-        const populatedCart = await cart.populate('items.product');
-        res.status(200).json({ status: 'success', data: populatedCart });
-    } catch (err) {
-        next({ message: "Failed to add item to cart", error: err.message });
-    }
-};
-
-const updateCartItem = async (req, res, next) => {
-    try {
-        const { userId, productId } = req.params;
-        const { quantity } = req.body;
-
-        const cart = await Cart.findOne({ user: userId });
-        
-        if (!cart) {
-            return res.status(404).json({ message: "Cart not found" });
+        if(quantity==0)
+        {
+            cart.cartItems = cart.cartItems.filter(item => item.prdID != prdID);
         }
-
-        const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
-        
-        if (itemIndex === -1) {
-            return res.status(404).json({ message: "Item not found in cart" });
-        }
-
-        cart.items[itemIndex].quantity = quantity;
+        cart.total = await calculateSubTotal(cart.cartItems);
         await cart.save();
-
-        const populatedCart = await cart.populate('items.product');
-        res.status(200).json({ status: 'success', data: populatedCart });
-    } catch (err) {
-        next({ message: "Failed to update cart item", error: err.message });
+        res.status(200).json(cart);
+    } catch (error) {
+        res.status(500).json({ message: "Failed make cart operation", error: error.message });
     }
-};
+}
+const calculateSubTotal = async (orderItems) => {
+    let subTotal = 0;
 
-const removeFromCart = async (req, res, next) => {
-    try {
-        const { userId, productId } = req.params;
+    for (const item of orderItems) {
 
-        const cart = await Cart.findOne({ user: userId });
-        
-        if (!cart) {
-            return res.status(404).json({ message: "Cart not found" });
-        }
-
-        cart.items = cart.items.filter(item => item.product.toString() !== productId);
-        await cart.save();
-
-        const populatedCart = await cart.populate('items.product');
-        res.status(200).json({ status: 'success', data: populatedCart });
-    } catch (err) {
-        next({ message: "Failed to remove item from cart", error: err.message });
+        const product = await Product.findById(item.prdID);
+        if (!product) throw new Error("Product not found");
+        subTotal += product.price.currentPrice * item.quantity;
     }
-};
 
-const clearCart = async (req, res, next) => {
-    try {
-        const { userId } = req.params;
-
-        const cart = await Cart.findOne({ user: userId });
-        
-        if (!cart) {
-            return res.status(404).json({ message: "Cart not found" });
-        }
-
-        cart.items = [];
-        await cart.save();
-        
-        res.status(200).json({ status: 'success', data: cart });
-    } catch (err) {
-        next({ message: "Failed to clear cart", error: err.message });
-    }
+    return subTotal;
 };
 
 module.exports = {
-    getCart,
-    addToCart,
-    updateCartItem,
-    removeFromCart,
-    clearCart
+    clearCart,
+    addTOCart,
+    getCurrentUserCart,
 };
