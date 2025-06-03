@@ -353,7 +353,7 @@ const googleLogin = async (req, res) => {
         );
 
         res.json({
-            success: true,
+            status: "success",
             user: {
                 id: user._id,
                 name: user.name,
