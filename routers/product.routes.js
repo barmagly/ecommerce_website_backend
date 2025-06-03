@@ -97,8 +97,6 @@ const router = express.Router();
  *             $ref: '#/components/schemas/Variant'
  */
 
-// Protect all routes after this middleware
-router.use(isAuthenticated);
 
 /**
  * @swagger
@@ -160,8 +158,6 @@ router.get('/', productController.getAllProducts);
  */
 router.get('/:id', productController.getProduct);
 
-// Admin only routes
-router.use(authorizeAdmin);
 
 /**
  * @swagger
@@ -300,10 +296,10 @@ router.route('/:productId/variants')
         authorizeAdmin,
         upload.fields([
             { name: 'images', maxCount: 5 }
-                ]),
+        ]),
         variantController.addVariant
-    )
-    .get(variantController.getVariants);
+    );
+router.route('/:productId/variants').get(variantController.getVariants);
 
 /**
  * @swagger
