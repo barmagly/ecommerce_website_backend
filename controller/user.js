@@ -348,7 +348,7 @@ const googleLogin = async (req, res) => {
         }
         const serverToken = jwt.sign(
             { id: user._id },
-            process.env.JWT_SECRET,
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 
