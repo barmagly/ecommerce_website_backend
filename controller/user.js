@@ -26,6 +26,7 @@ if(!name || !email || !password || !phone){
             email,
             password,
             phone,
+            addresses,
             active: true
         });
 
