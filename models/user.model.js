@@ -53,14 +53,7 @@ const userSchema = new mongoose.Schema(
                 ref: 'Product',
             },
         ],
-        addresses: [
-            {
-                id: { type: mongoose.Schema.Types.ObjectId },
-                details: String,
-                city: String,
-                postalCode: String,
-            },
-        ],
+        addresses: String,
         googleId: String,
         isGoogleUser: {
             type: Boolean,
