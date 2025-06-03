@@ -178,7 +178,7 @@ const deleteUser = async (req, res, next) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-         user = await User.findByIdAndDelete(id);
+        user = await User.findByIdAndDelete(id);
 
 
         res.status(204).json({
@@ -308,7 +308,7 @@ const googleLogin = async (req, res) => {
     try {
         const ticket = await client.verifyIdToken({
             idToken,
-            audience: process.env.GOOGLE_CLIENT_ID,
+            audience: process.env.GOOGLE_CLIENT_ID || '812727128915-pjdracpnf7dalh7ppeagmtfhkea0vf3s.apps.googleusercontent.com',
         });
 
         const payload = ticket.getPayload();
