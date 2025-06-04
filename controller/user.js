@@ -236,7 +236,7 @@ const removeFromWishlist = async (req, res) => {
             return res.status(404).json({ message: 'Product not found' });
         }
 
-        const objectId = mongoose.Types.ObjectId(productId);
+        const objectId = new mongoose.Types.ObjectId(productId);
 
         const user = await User.findByIdAndUpdate(
             req.user._id,
@@ -250,6 +250,7 @@ const removeFromWishlist = async (req, res) => {
         });
     } catch (err) {
         return res.status(500).json({
+            status: 'error',
             message: 'Failed to remove from wishlist',
             error: err.message
         });
