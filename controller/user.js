@@ -12,7 +12,7 @@ const generateToken = (id) => {
 
 const register = async (req, res, next) => {
     try {
-        const { name, email, password, phone, addresses } = req.body;
+        const { name, email, password, phone, addresses, address } = req.body;
         if (!name || !email || !password || !phone) {
             return res.status(400).json({ message: 'All fields are required' });
         }
@@ -26,7 +26,7 @@ const register = async (req, res, next) => {
             email,
             password,
             phone,
-            addresses,
+            addresses: addresses || address, // Accept both addresses and address
             active: true
         });
 

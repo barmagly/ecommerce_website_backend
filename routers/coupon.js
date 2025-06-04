@@ -28,13 +28,13 @@ const {
  *         discount:
  *           type: number
  *           description: Discount percentage
- *        expire:
- *          type: string
- *          format: date-time
- *          description: Expiration date of the coupon
- *        name:
- *          type: string
- *         description: Unique coupon code
+ *         expire:
+ *           type: string
+ *           format: date-time
+ *           description: Expiration date of the coupon
+ *         name:
+ *           type: string
+ *           description: Unique coupon code
  */
 
 /**
