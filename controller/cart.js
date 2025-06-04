@@ -10,7 +10,10 @@ let getCurrentUserCart = async (req, res) => {
             return res.status(403).json("Only Users can delete cart");
         }
         let userCart = await CartModel.find({ userID: req.user.id });
-        res.status(200).json(userCart);
+        res.status(200).json({
+            status: 'success',
+            data: userCart
+        });
     } catch (error) {
         res.status(500).json({ message: "Failed get user cart", error: error.message });
     }
@@ -26,7 +29,10 @@ let clearCart = async (req, res) => {
         if (!cart) {
             return res.status(403).json({ message: "Users can delete thier carts only or cart not found" });
         }
-        res.status(200).json({ message: "cart deleted" });
+        res.status(200).json({
+            status: 'success',
+            message: "cart deleted"
+        });
     } catch (error) {
         res.status(500).json({ message: "Failed clear cart", error: error.message });
     }
@@ -56,7 +62,10 @@ let addTOCart = async (req, res) => {
         }
         cart.total = await calculateSubTotal(cart.cartItems);
         await cart.save();
-        res.status(200).json(cart);
+        res.status(200).json({
+            status: 'success',
+            data: cart
+        });
     } catch (error) {
         res.status(500).json({ message: "Failed make cart operation", error: error.message });
     }

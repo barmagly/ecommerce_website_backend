@@ -245,14 +245,39 @@ const removeFromWishlist = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ message: 'Invalid Product ID format' });
+        }
+
         const objectIdProductId = new mongoose.Types.ObjectId(productId);
-        user.wishlist.pull(objectIdProductId);
-        await user.save();
-        await user.populate('wishlist');
+
+        // Use User.updateOne with $pull to directly modify the database
+        const updateResult = await User.updateOne(
+            { _id: req.user._id }, // Find the user
+            { $pull: { wishlist: objectIdProductId } } // Remove the product from their wishlist
+        );
+
+        // Log the result of the update operation for debugging
+        console.log('Database update operation result:', updateResult);
+
+        if (updateResult.matchedCount === 0) {
+            // User document not found for update, though previous checks should prevent this.
+            return res.status(404).json({ message: 'User not found during wishlist update operation.' });
+        }
+
+        // After updating, re-fetch the user to get the latest wishlist state
+        const updatedUser = await User.findById(req.user._id).populate('wishlist');
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'User not found after attempting wishlist update.' });
+        }
+
+        // Log the wishlist from the re-fetched user to confirm its state before responding
+        console.log('Wishlist from re-fetched updatedUser for response:', JSON.stringify(updatedUser.wishlist));
 
         return res.status(200).json({
             status: 'success',
-            data: user.wishlist
+            data: updatedUser.wishlist // Send the wishlist from the re-fetched user
         });
     } catch (err) {
         return res.status(500).json({
