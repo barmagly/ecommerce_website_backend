@@ -12,10 +12,10 @@ const generateToken = (id) => {
 
 const register = async (req, res, next) => {
     try {
-        const { name, email, password, phone ,addresses} = req.body;
-if(!name || !email || !password || !phone){
-    return res.status(400).json({ message: 'All fields are required' });
-}
+        const { name, email, password, phone, addresses } = req.body;
+        if (!name || !email || !password || !phone) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'Email already registered' });
@@ -191,7 +191,20 @@ const deleteUser = async (req, res, next) => {
         next({ message: 'Failed to delete user', error: err.message });
     }
 };
+const getWishlist = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id)
+            .select('-password')
+            .populate('wishlist');
 
+        res.status(200).json({
+            status: 'success',
+            data: user.wishlist
+        });
+    } catch (err) {
+        next({ message: 'Failed to retrieve wishlist', error: err.message });
+    }
+};
 const addToWishlist = async (req, res, next) => {
     try {
         const { productId } = req.params;
@@ -385,5 +398,6 @@ module.exports = {
     removeFromWishlist,
     addAddress,
     removeAddress,
-    googleLogin
+    googleLogin,
+    getWishlist
 };

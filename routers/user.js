@@ -15,7 +15,8 @@ const {
     removeFromWishlist,
     addAddress,
     removeAddress,
-    googleLogin
+    googleLogin,
+    getWishlist
 } = require('../controller/user');
 
 /**
@@ -197,6 +198,7 @@ router.use(isAuthenticated);
 router.get('/profile', getProfile);
 router.patch('/profile', updateUser);
 router.patch('/password', updatePassword);
+router.get('/wishlist', getWishlist);
 
 /**
  * @swagger
