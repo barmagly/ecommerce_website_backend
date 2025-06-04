@@ -18,7 +18,7 @@ const dashboardModel = {
   // Products CRUD
   async getProducts() {
     const products = await Product.find();
-    return { products };
+    return { products: products || [] };
   },
   async postProducts(data) {
     const product = await Product.create(data);
@@ -36,7 +36,7 @@ const dashboardModel = {
   // Categories CRUD
   async getCategories() {
     const categories = await CategoryModel.find();
-    return { categories };
+    return { categories: categories || [] };
   },
   async postCategories(data) {
     const category = await CategoryModel.create(data);
@@ -54,7 +54,7 @@ const dashboardModel = {
   // Users CRUD
   async getUsers() {
     const users = await User.find();
-    return { users };
+    return { users: users || [] };
   },
   async postUsers(data) {
     const user = await User.create(data);
@@ -72,7 +72,7 @@ const dashboardModel = {
   // Orders CRUD
   async getOrders() {
     const orders = await OrderModel.find();
-    return { orders };
+    return { orders: orders || [] };
   },
   async postOrders(data) {
     const order = await OrderModel.create(data);

@@ -12,6 +12,7 @@ const orderRouter = require('./routers/order');
 const reviewRouter = require('./routers/review');
 const couponRouter = require('./routers/coupon');
 const userRouter = require('./routers/user');
+const dashboardRouter = require('./dashboard/index');
 
 const app = express();
 
@@ -72,6 +73,7 @@ const startServer = async () => {
         app.use('/api/orders', orderRouter);
         app.use('/api/reviews', reviewRouter);
         app.use('/api/coupons', couponRouter);
+        app.use('/api/dashboard', dashboardRouter);
 
         // Error handling middleware
         app.use((err, req, res, next) => {
