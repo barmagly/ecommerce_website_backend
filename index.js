@@ -23,7 +23,17 @@ app.use(express.static('static'));
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'X-API-Key', 
+        'X-Admin-Secret', 
+        'X-Client-Type',
+        'x-api-key',
+        'x-admin-secret', 
+        'x-client-type'
+    ],
+    credentials: true
 }));
 
 // Database connection
@@ -63,6 +73,25 @@ const startServer = async () => {
         // Swagger UI
         app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+        // Root route
+        app.get('/', (req, res) => {
+            res.json({
+                message: 'E-commerce Backend API',
+                status: 'running',
+                version: '1.0.0',
+                endpoints: {
+                    auth: '/api/auth',
+                    products: '/api/products',
+                    categories: '/api/categories',
+                    cart: '/api/cart',
+                    orders: '/api/orders',
+                    reviews: '/api/reviews',
+                    coupons: '/api/coupons',
+                    dashboard: '/api/dashboard'
+                }
+            });
+        });
+
         // API Routes
         app.use('/api/auth', userRouter);
         app.use('/api/products', productRouter); // This includes nested variant routes
@@ -75,10 +104,12 @@ const startServer = async () => {
 
         // Error handling middleware
         app.use((err, req, res, next) => {
-            console.error('Error:', err.message);
-            res.status(500).json({
+            console.error('Error:', err);
+            const status = err.status || err.statusCode || 500;
+            res.status(status).json({
                 status: 'error',
-                message: err.message
+                message: err.message || 'Internal server error',
+                ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
             });
         });
 
@@ -94,7 +125,9 @@ const startServer = async () => {
         // Start server
         const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
-            console.log(`Server started on http://localhost:${PORT}`);
+            console.log(`Server started on port ${PORT}`);
+            console.log(`Local: http://localhost:${PORT}`);
+            console.log(`API Documentation: http://localhost:${PORT}/api-docs`);
         });
 
     } catch (error) {
