@@ -35,8 +35,6 @@ async function connectToDatabase() {
     }
 
     const opts = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
         // Add serverless-specific options
         bufferCommands: false,
         maxPoolSize: 1,
