@@ -227,27 +227,35 @@ const addToWishlist = async (req, res, next) => {
     }
 };
 
-const removeFromWishlist = async (req, res, next) => {
+const removeFromWishlist = async (req, res) => {
     try {
         const { productId } = req.params;
+
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
+
+        const objectId = mongoose.Types.ObjectId(productId);
+
         const user = await User.findByIdAndUpdate(
             req.user._id,
-            { $pull: { wishlist: productId } },
+            { $pull: { wishlist: objectId } },
             { new: true }
         ).populate('wishlist');
 
-        res.status(200).json({
+        return res.status(200).json({
             status: 'success',
             data: user.wishlist
         });
     } catch (err) {
-        next({ message: 'Failed to remove from wishlist', error: err.message });
+        return res.status(500).json({
+            message: 'Failed to remove from wishlist',
+            error: err.message
+        });
     }
 };
+
 
 const addAddress = async (req, res, next) => {
     try {
