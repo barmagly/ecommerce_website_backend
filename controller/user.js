@@ -229,33 +229,38 @@ const addToWishlist = async (req, res, next) => {
 
 const removeFromWishlist = async (req, res) => {
     try {
-        const { productId } = req.params;
-
-        const product = await Product.findById(productId);
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found' });
-        }
-
-        const objectId = new mongoose.Types.ObjectId(productId);
-
-        const user = await User.findByIdAndUpdate(
-            req.user._id,
-            { $pull: { wishlist: objectId } },
-            { new: true }
-        ).populate('wishlist');
-
-        return res.status(200).json({
-            status: 'success',
-            data: user.wishlist
-        });
+      const { productId } = req.params;
+  
+      if (!req.user || !req.user._id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+  
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+  
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      user.wishlist.pull(productId);
+      await user.save();
+      await user.populate('wishlist');
+  
+      return res.status(200).json({
+        status: 'success',
+        data: user.wishlist
+      });
     } catch (err) {
-        return res.status(500).json({
-            status: 'error',
-            message: 'Failed to remove from wishlist',
-            error: err.message
-        });
+      return res.status(500).json({
+        message: 'Failed to remove from wishlist',
+        error: err.message
+      });
     }
-};
+  };
+  
 
 
 const addAddress = async (req, res, next) => {
