@@ -146,6 +146,7 @@ const productSchema = new mongoose.Schema({
         }]
     }],
      attributes: [attributeSchema],
+     variants:[productVariantSchema]
 },
     {
         timestamps: true,
