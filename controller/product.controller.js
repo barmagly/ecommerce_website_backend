@@ -3,6 +3,74 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
+// Filter products based on various criteria
+exports.filterProducts = catchAsync(async (req, res, next) => {
+    try {
+        const filters = {};
+        
+        // Price range filtering
+        if (req.query.minPrice || req.query.maxPrice) {
+            filters.price = {};
+            if (req.query.minPrice) filters.price.$gte = parseFloat(req.query.minPrice);
+            if (req.query.maxPrice) filters.price.$lte = parseFloat(req.query.maxPrice);
+        }
+
+        // Category filtering
+        if (req.query.category) {
+            filters.category = req.query.category;
+        }
+
+        // Stock status filtering
+        if (req.query.inStock) {
+            filters.inStock = req.query.inStock.toLowerCase() === 'true';
+        }
+
+        // Rating filtering
+        if (req.query.minRating) {
+            filters['ratings.average'] = { $gte: parseFloat(req.query.minRating) };
+        }
+
+        // Search by title or description
+        if (req.query.search) {
+            const searchRegex = new RegExp(req.query.search, 'i');
+            filters.$or = [
+                { title: searchRegex },
+                { description: searchRegex }
+            ];
+        }
+
+        // Sort options
+        const sort = req.query.sort ? req.query.sort.split(',').join(' ') : '-createdAt';
+
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
+
+        // Query products
+        const products = await Product.find(filters)
+            .sort(sort)
+            .skip(skip)
+            .limit(limit)
+            .populate('variants');
+
+        // Get total count for pagination
+        const totalProducts = await Product.countDocuments(filters);
+
+        res.status(200).json({
+            status: 'success',
+            results: products.length,
+            page,
+            totalPages: Math.ceil(totalProducts / limit),
+            data: products
+        });
+    } catch (error) {
+        next(new AppError(error.message, 500));
+    }
+});
+
+
+
 // Create a new product with variants
 exports.createProduct = catchAsync(async (req, res, next) => {
     try {
