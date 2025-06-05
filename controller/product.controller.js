@@ -12,7 +12,16 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 
         // Upload cover image first
         const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
-
+if(req.body.sku){
+    const variant = await ProductVariant.findOne({ sku: req.body.sku });
+    if (variant) {
+        return res.status(400).json({
+            success: false,
+            status: 'error',
+            message: 'Variant with this SKU already exists'
+        });
+    }
+}
         // Upload additional images if provided
         let productImages = [];
         if (req.files.images) {
