@@ -6,9 +6,9 @@ const userSchema = new mongoose.Schema(
         name: {
             type: String,
             trim: true,
-            min: [3, 'Too short name'],
-            max: [30, 'Too long name'],
-            required: [true, 'name required'],
+            min: [3, 'Name must be at least 3 characters long'],
+            max: [30, 'Name cannot exceed 30 characters'],
+            required: [true, 'Name is required'],
         },
         slug: {
             type: String,
@@ -16,23 +16,37 @@ const userSchema = new mongoose.Schema(
         },
         email: {
             type: String,
-            required: [true, 'email required'],
+            required: [true, 'Email is required'],
             unique: true,
             lowercase: true,
             validate: {
                 validator: function (v) {
                     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z]+\.[a-zA-Z]{2,}$/.test(v);
                 },
-                message: props => `${props.value} is not a valid email!`,
+                message: props => `${props.value} is not a valid email address`,
             },
         },
-        phone: String,
+        phone: {
+            type: String,
+            required: [true, 'Phone number is required'],
+            validate: {
+                validator: function(v) {
+                    return /^[0-9]{10,15}$/.test(v);
+                },
+                message: props => `${props.value} is not a valid phone number`
+            }
+        },
         profileImg: String,
-
         password: {
             type: String,
-            // required: [true, 'password required'],
-            minlength: [8, 'Too short password'],
+            required: [true, 'Password is required'],
+            minlength: [8, 'Password must be at least 8 characters long'],
+            validate: {
+                validator: function(v) {
+                    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(v);
+                },
+                message: 'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
+            }
         },
         passwordChangedAt: Date,
         passwordResetCode: String,
@@ -72,4 +86,5 @@ userSchema.pre('save', async function (next) {
 
 const User = mongoose.model('User', userSchema);
 
+module.exports = User;
 module.exports = User;

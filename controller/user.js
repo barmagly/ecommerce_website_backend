@@ -13,14 +13,45 @@ const generateToken = (id) => {
 const register = async (req, res, next) => {
     try {
         const { name, email, password, phone, addresses, address } = req.body;
-        if (!name || !email || !password || !phone) {
-            return res.status(400).json({ message: 'All fields are required' });
-        }
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'Email already registered' });
+
+        // Validate required fields
+        const missingFields = [];
+        if (!name) missingFields.push('name');
+        if (!email) missingFields.push('email');
+        if (!password) missingFields.push('password');
+        if (!phone) missingFields.push('phone');
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({ 
+                message: 'Missing required fields', 
+                fields: missingFields 
+            });
         }
 
+        // Validate email format
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ 
+                message: 'Invalid email format' 
+            });
+        }
+
+        // Validate password length
+        if (password.length < 8) {
+            return res.status(400).json({ 
+                message: 'Password must be at least 8 characters long' 
+            });
+        }
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ 
+                message: 'Email already registered' 
+            });
+        }
+
+        // Create new user
         const user = await User.create({
             name,
             email,
@@ -45,6 +76,13 @@ const register = async (req, res, next) => {
             }
         });
     } catch (err) {
+        console.error('Registration error:', err);
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({ 
+                message: 'Validation error', 
+                errors: Object.values(err.errors).map(e => e.message)
+            });
+        }
         next({ message: 'Failed to register user', error: err.message });
     }
 };
@@ -53,26 +91,62 @@ const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
-        const user = await User.findOne({ email }).select('+password');
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({ 
+                message: 'Email and password are required' 
+            });
         }
 
+        // Find user and explicitly select password field
+        const user = await User.findOne({ email }).select('+password');
+        if (!user) {
+            return res.status(401).json({ 
+                message: 'Invalid email or password' 
+            });
+        }
+
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ 
+                message: 'Invalid email or password' 
+            });
+        }
+
+        // Generate token
         const token = generateToken(user._id);
+        if (!token) {
+            return res.status(500).json({ 
+                message: 'Failed to generate authentication token' 
+            });
+        }
+
+        // Return user data and token in the format expected by frontend
+        const userData = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone
+        };
+
+        // For admin users, include additional data
+        if (user.role === 'admin') {
+            userData.isAdmin = true;
+        }
 
         res.status(200).json({
             status: 'success',
             data: {
-                user: {
-                    _id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role
-                },
-                token
+                user: userData,
+                token: token,
+                hasToken: true,
+                hasUser: true
             }
         });
     } catch (err) {
+        console.error('Login error:', err);
         next({ message: 'Failed to login', error: err.message });
     }
 };
