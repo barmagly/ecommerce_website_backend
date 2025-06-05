@@ -91,10 +91,7 @@ exports.getProduct = catchAsync(async (req, res, next) => {
             return next(new AppError('No product found with that ID', 404));
         }
 
-        res.status(200).json({
-            status: 'success',
-            product
-        });
+        res.status(200).json(product);
     } catch (err) {
         res.status(500).json({
             status: 'error',
