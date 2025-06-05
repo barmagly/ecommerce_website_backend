@@ -14,17 +14,29 @@ const register = async (req, res, next) => {
     try {
         const { name, email, password, phone, addresses, address } = req.body;
 
-        // Validate required fields
-        const missingFields = [];
-        if (!name) missingFields.push('name');
-        if (!email) missingFields.push('email');
-        if (!password) missingFields.push('password');
-        if (!phone) missingFields.push('phone');
-
-        if (missingFields.length > 0) {
+        // Validate required fields with specific messages
+        if (!name) {
             return res.status(400).json({ 
-                message: 'Missing required fields', 
-                fields: missingFields 
+                message: 'Name is required',
+                field: 'name'
+            });
+        }
+        if (!email) {
+            return res.status(400).json({ 
+                message: 'Email is required',
+                field: 'email'
+            });
+        }
+        if (!password) {
+            return res.status(400).json({ 
+                message: 'Password is required',
+                field: 'password'
+            });
+        }
+        if (!phone) {
+            return res.status(400).json({ 
+                message: 'Phone number is required',
+                field: 'phone'
             });
         }
 
@@ -32,14 +44,34 @@ const register = async (req, res, next) => {
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({ 
-                message: 'Invalid email format' 
+                message: 'Please enter a valid email address',
+                field: 'email'
             });
         }
 
-        // Validate password length
-        if (password.length < 8) {
+        // Validate password
+        if (password.length < 6) {
             return res.status(400).json({ 
-                message: 'Password must be at least 8 characters long' 
+                message: 'Password must be at least 6 characters long',
+                field: 'password'
+            });
+        }
+
+        // Validate password format
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ 
+                message: 'Password must contain at least one letter and one number',
+                field: 'password'
+            });
+        }
+
+        // Validate phone format
+        const phoneRegex = /^[0-9]{10,15}$/;
+        if (!phoneRegex.test(phone)) {
+            return res.status(400).json({ 
+                message: 'Please enter a valid phone number (10-15 digits)',
+                field: 'phone'
             });
         }
 
@@ -47,7 +79,8 @@ const register = async (req, res, next) => {
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ 
-                message: 'Email already registered' 
+                message: 'This email is already registered',
+                field: 'email'
             });
         }
 
@@ -70,17 +103,24 @@ const register = async (req, res, next) => {
                     _id: user._id,
                     name: user.name,
                     email: user.email,
-                    role: user.role
+                    role: user.role,
+                    phone: user.phone
                 },
-                token
+                token,
+                hasToken: true,
+                hasUser: true
             }
         });
     } catch (err) {
         console.error('Registration error:', err);
         if (err.name === 'ValidationError') {
+            const errors = Object.values(err.errors).map(e => ({
+                message: e.message,
+                field: e.path
+            }));
             return res.status(400).json({ 
-                message: 'Validation error', 
-                errors: Object.values(err.errors).map(e => e.message)
+                message: 'Validation error',
+                errors
             });
         }
         next({ message: 'Failed to register user', error: err.message });
