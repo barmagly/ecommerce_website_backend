@@ -129,20 +129,24 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        // Accept both username and email fields
+        const { email, username, password } = req.body;
+        const loginEmail = email || username;
 
         // Validate input
-        if (!email || !password) {
+        if (!loginEmail || !password) {
             return res.status(400).json({ 
-                message: 'Email and password are required' 
+                message: 'Email and password are required',
+                field: !loginEmail ? 'email' : 'password'
             });
         }
 
         // Find user and explicitly select password field
-        const user = await User.findOne({ email }).select('+password');
+        const user = await User.findOne({ email: loginEmail }).select('+password');
         if (!user) {
             return res.status(401).json({ 
-                message: 'Invalid email or password' 
+                message: 'Invalid email or password',
+                field: 'email'
             });
         }
 
@@ -150,7 +154,8 @@ const login = async (req, res, next) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ 
-                message: 'Invalid email or password' 
+                message: 'Invalid email or password',
+                field: 'password'
             });
         }
 
@@ -176,13 +181,15 @@ const login = async (req, res, next) => {
             userData.isAdmin = true;
         }
 
+        // Send response in the exact format expected by frontend
         res.status(200).json({
             status: 'success',
             data: {
                 user: userData,
                 token: token,
                 hasToken: true,
-                hasUser: true
+                hasUser: true,
+                adminData: user.role === 'admin' ? userData : undefined
             }
         });
     } catch (err) {
