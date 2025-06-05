@@ -90,25 +90,32 @@ const register = async (req, res, next) => {
             email,
             password,
             phone,
-            addresses: addresses || address, // Accept both addresses and address
+            addresses: addresses || address,
             active: true
         });
 
         const token = generateToken(user._id);
 
+        // Return user data and token in the same format as login
+        const userData = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone
+        };
+
         res.status(201).json({
             status: 'success',
             data: {
-                user: {
-                    _id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    phone: user.phone
-                },
+                user: userData,
                 token,
                 hasToken: true,
-                hasUser: true
+                hasUser: true,
+                adminData: user.role === 'admin' ? {
+                    ...userData,
+                    isAdmin: true
+                } : null
             }
         });
     } catch (err) {
@@ -186,10 +193,13 @@ const login = async (req, res, next) => {
             status: 'success',
             data: {
                 user: userData,
-                token: token,
+                token,
                 hasToken: true,
                 hasUser: true,
-                adminData: user.role === 'admin' ? userData : undefined
+                adminData: user.role === 'admin' ? {
+                    ...userData,
+                    isAdmin: true
+                } : null
             }
         });
     } catch (err) {
@@ -521,24 +531,33 @@ const googleLogin = async (req, res) => {
         } else {
             console.log(`Existing user logged in: ${email}`);
         }
-        const serverToken = jwt.sign(
-            { id: user._id },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+
+        const token = generateToken(user._id);
+
+        // Return user data and token in the same format as login
+        const userData = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+            profileImg: user.profileImg,
+            isGoogleUser: user.isGoogleUser
+        };
 
         res.json({
-            status: "success",
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                profileImg: user.profileImg,
-                email_verified: email_verified
-            },
-            token: serverToken
+            status: 'success',
+            data: {
+                user: userData,
+                token,
+                hasToken: true,
+                hasUser: true,
+                adminData: user.role === 'admin' ? {
+                    ...userData,
+                    isAdmin: true
+                } : null
+            }
         });
-
     } catch (error) {
         console.error('❌ Token verification failed:', error);
         res.status(401).json({ success: false, message: 'Invalid ID Token' });
