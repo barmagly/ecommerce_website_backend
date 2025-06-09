@@ -1,12 +1,22 @@
 const CartModel = require("../models/cart.model");
-const { Product } = require("../models/product.model");
+const { Product, ProductVariant } = require("../models/product.model");
 
 let getCurrentUserCart = async (req, res) => {
     try {
         if (req.user.role !== "user") {
             return res.status(403).json("Only Users can delete cart");
         }
-        let userCart = await CartModel.find({ userID: req.user._id });
+        let userCart = await CartModel.find({ userID: req.user._id }).populate({
+            path: 'cartItems.prdID',
+            model: 'Product',
+            select: 'images name price stock'
+        })
+        .populate({
+            path: 'cartItems.variantId',
+            model: 'ProductVariant',
+            select: 'sku price quantity images'
+        });
+
         res.status(200).json(userCart);
     } catch (error) {
         res.status(500).json({ message: "Server error", error });
@@ -40,60 +50,47 @@ let addTOCart = async (req, res) => {
             return res.status(403).json("Only Users can add to cart");
         }
 
-        let { prdID, variantId, quantity } = req.body;
-
-        // let productId = prdID.prdID || prdID;
-        // let variantId = prdID.variantId || null;
-
+        let { prdID, variantId = null, quantity } = req.body;
+        
         let cart = await CartModel.findOne({ userID: req.user.id });
 
         if (!cart) {
             cart = new CartModel({ userID: req.user.id, cartItems: [] });
         }
 
-        // let existingItem = cart.cartItems.find((item) => {
-        //   if (variantId) {
-        //     return (
-        //       item.prdID.toString() === prdID.toString() &&
-        //       item.variantId &&
-        //       item.variantId.toString() === variantId.toString()
-        //     );
-        //   } else {
-        //     return (
-        //       item.prdID.toString() === prdID.toString() && !item.variantId
-        //     );
-        //   }
-        // });
-
-        // if (existingItem) {
-        //   existingItem.quantity += quantity;
-
-        //   if (existingItem.quantity <= 0) {
-        //     cart.cartItems = cart.cartItems.filter((item) => item !== existingItem);
-        //   }
-        // } else {
-        //   if (quantity > 0) {
-        //     const newItem = {
-        //       prdID,
-        //       quantity,
-        //     };
-
-        //     if (variantId) {
-        //       newItem.variantId = variantId;
-        //     }
-
-        //     cart.cartItems.push(newItem);
-        //   }
-        // }
-
-        let existingItem = cart.cartItems.find(item => item.prdID == prdID);
+        let existingItem = cart.cartItems.find((item) => {
+            if (variantId) {
+                return (
+                    item.prdID.toString() === prdID.toString() &&
+                    item.variantId &&
+                    item.variantId.toString() === variantId.toString()
+                );
+            } else {
+                return (
+                    item.prdID.toString() === prdID.toString() && !item.variantId
+                );
+            }
+        });
+        
         if (existingItem) {
             existingItem.quantity += quantity;
+
+            if (existingItem.quantity <= 0||quantity==0) {
+                cart.cartItems = cart.cartItems.filter((item) => item !== existingItem);
+            }
         } else {
-            cart.cartItems.push({ prdID, quantity });
-        }
-        if (quantity == 0) {
-            cart.cartItems = cart.cartItems.filter(item => item.prdID != prdID);
+            if (quantity > 0) {
+                const newItem = {
+                    prdID,
+                    quantity,
+                };
+
+                if (variantId) {
+                    newItem.variantId = variantId;
+                }
+
+                cart.cartItems.push(newItem);
+            }
         }
 
         let subTotal = 0;
@@ -103,7 +100,7 @@ let addTOCart = async (req, res) => {
                 if (product) {
                     let price;
                     if (item.variantId) {
-                        const variant = product.variants.id(item.variantId);
+                        const variant = await ProductVariant.findById(item.variantId);
                         price = variant
                             ? variant.price
                             : product.price;
@@ -118,8 +115,7 @@ let addTOCart = async (req, res) => {
         }
 
         cart.total = subTotal;
-        await cart.save();
-
+        await cart.save();        
         res.status(200).json(cart);
     } catch (error) {
         console.error("Server error:", error);
