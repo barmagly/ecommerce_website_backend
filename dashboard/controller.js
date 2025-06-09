@@ -1,7 +1,7 @@
 const dashboardModel = require('./model');
 
 const dashboardController = {
-  // Dashboard summary
+  // Dashboard overview
   async getDashboard(req, res) {
     try {
       const result = await dashboardModel.getDashboard();
@@ -147,7 +147,7 @@ const dashboardController = {
     }
   },
 
-  // Profile (using User for now)
+  // Profile
   async getProfile(req, res) {
     try {
       const result = await dashboardModel.getProfile(req.params.id);

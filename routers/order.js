@@ -4,12 +4,25 @@ const { isAuthenticated } = require('../middlewares/userauth');
 const { authorizeAdmin } = require('../middlewares/authrization');
 const {
     createOrder,
+    createOrderWithCart,
     getAllOrders,
     getOrderById,
     getUserOrders,
     updateOrderStatus,
     cancelOrder
 } = require('../controller/order');
+const upload = require('../middlewares/uploadMiddleware');
+
+// Order routes with file upload support
+// Create order with image upload
+router.post('/upload', isAuthenticated, upload.single('image'), createOrder);
+// Create order from cart   
+router.post('/', isAuthenticated, createOrderWithCart);
+router.get('/', isAuthenticated, getAllOrders);
+router.get('/:id', isAuthenticated, getOrderById);
+router.get('/user/:userId', isAuthenticated, getUserOrders);
+router.patch('/:id/status', isAuthenticated, authorizeAdmin, updateOrderStatus);
+router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
 
 /**
  * @swagger

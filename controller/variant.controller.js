@@ -37,13 +37,9 @@ exports.addVariant = catchAsync(async (req, res, next) => {
                 }
             }
         }
-
-        console.log(parsedAttributes);
-        const parsedAttributes = JSON.parse(req.body.attributes);
-        // Create new variant with color image
         const variantData = {
             ...req.body,
-            attributes: parsedAttributes,
+            attributes: new Map(Object.entries(req.body.attributes)),
             product: product._id,
             images: variantImages
         };
