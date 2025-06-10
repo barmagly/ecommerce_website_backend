@@ -2,6 +2,24 @@ const express = require('express');
 const router = express.Router();
 const { isAuthenticated } = require('../middlewares/userauth');
 const { authorizeAdmin } = require('../middlewares/authrization');
+const multer = require('multer');
+const path = require('path');
+
+// Configure multer for file uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB max file size
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'));
+        }
+    }
+});
+
 const {
     register,
     login,
@@ -16,7 +34,15 @@ const {
     addAddress,
     removeAddress,
     googleLogin,
-    getWishlist
+    getWishlist,
+    getAddressBook,
+    addAddressToBook,
+    updateAddressInBook,
+    deleteAddressFromBook,
+    getPaymentOptions,
+    addPaymentOption,
+    updatePaymentOption,
+    deletePaymentOption
 } = require('../controller/user');
 
 /**
@@ -196,9 +222,21 @@ router.use(isAuthenticated);
 
 // User routes
 router.get('/profile', getProfile);
-router.patch('/profile', updateUser);
+router.patch('/profile', upload.single('profileImg'), updateUser);
 router.patch('/password', updatePassword);
 router.get('/wishlist', getWishlist);
+
+// Address book routes
+router.get('/address-book', getAddressBook);
+router.post('/address-book', addAddressToBook);
+router.patch('/address-book/:addressId', updateAddressInBook);
+router.delete('/address-book/:addressId', deleteAddressFromBook);
+
+// Payment options routes
+router.get('/payment-options', getPaymentOptions);
+router.post('/payment-options', addPaymentOption);
+router.patch('/payment-options/:paymentOptionId', updatePaymentOption);
+router.delete('/payment-options/:paymentOptionId', deletePaymentOption);
 
 /**
  * @swagger

@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const User = require('../models/user.model');
 const { Product, ProductVariant } = require('../models/product.model');
+const { uploadToCloudinary } = require('../utils/cloudinary');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Generate JWT Token
@@ -16,25 +17,25 @@ const register = async (req, res, next) => {
 
         // Validate required fields with specific messages
         if (!name) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Name is required',
                 field: 'name'
             });
         }
         if (!email) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Email is required',
                 field: 'email'
             });
         }
         if (!password) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Password is required',
                 field: 'password'
             });
         }
         if (!phone) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Phone number is required',
                 field: 'phone'
             });
@@ -43,7 +44,7 @@ const register = async (req, res, next) => {
         // Validate email format
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Please enter a valid email address',
                 field: 'email'
             });
@@ -51,7 +52,7 @@ const register = async (req, res, next) => {
 
         // Validate password
         if (password.length < 6) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Password must be at least 6 characters long',
                 field: 'password'
             });
@@ -60,7 +61,7 @@ const register = async (req, res, next) => {
         // Validate password format
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/;
         if (!passwordRegex.test(password)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Password must contain at least one letter and one number',
                 field: 'password'
             });
@@ -69,7 +70,7 @@ const register = async (req, res, next) => {
         // Validate phone format
         const phoneRegex = /^[0-9]{10,15}$/;
         if (!phoneRegex.test(phone)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Please enter a valid phone number (10-15 digits)',
                 field: 'phone'
             });
@@ -78,7 +79,7 @@ const register = async (req, res, next) => {
         // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'This email is already registered',
                 field: 'email'
             });
@@ -125,7 +126,7 @@ const register = async (req, res, next) => {
                 message: e.message,
                 field: e.path
             }));
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Validation error',
                 errors
             });
@@ -142,7 +143,7 @@ const login = async (req, res, next) => {
 
         // Validate input
         if (!loginEmail || !password) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Email and password are required',
                 field: !loginEmail ? 'email' : 'password'
             });
@@ -151,7 +152,7 @@ const login = async (req, res, next) => {
         // Find user and explicitly select password field
         const user = await User.findOne({ email: loginEmail }).select('+password');
         if (!user) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 message: 'Invalid email or password',
                 field: 'email'
             });
@@ -160,7 +161,7 @@ const login = async (req, res, next) => {
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 message: 'Invalid email or password',
                 field: 'password'
             });
@@ -169,8 +170,8 @@ const login = async (req, res, next) => {
         // Generate token
         const token = generateToken(user._id);
         if (!token) {
-            return res.status(500).json({ 
-                message: 'Failed to generate authentication token' 
+            return res.status(500).json({
+                message: 'Failed to generate authentication token'
             });
         }
 
@@ -259,8 +260,17 @@ const getProfile = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
     try {
-        const { name, email, phone } = req.body;
+        // Get form data from request body
+        const { name, email, phone, addresses } = req.body;
+        let profileImgUrl = null;
 
+        // Handle profile image upload if provided
+        if (req.file) {
+            const uploadResult = await uploadToCloudinary(req.file, 'users/profiles/' + req.user._id);
+            profileImgUrl = uploadResult.url;
+        }
+
+        // Validate email if provided
         if (email) {
             const existingUser = await User.findOne({ email, _id: { $ne: req.user._id } });
             if (existingUser) {
@@ -268,9 +278,20 @@ const updateUser = async (req, res, next) => {
             }
         }
 
+        // Create update fields object
+        const updateFields = {};
+
+        // Only add fields that are provided
+        if (name) updateFields.name = name;
+        if (email) updateFields.email = email;
+        if (phone) updateFields.phone = phone;
+        if (addresses) updateFields.addresses = addresses;
+        if (profileImgUrl) updateFields.profileImg = profileImgUrl;
+
+        // Update user
         const user = await User.findByIdAndUpdate(
             req.user._id,
-            { name, email, phone },
+            updateFields,
             { new: true, runValidators: true }
         ).select('-password');
 
@@ -287,23 +308,38 @@ const updatePassword = async (req, res, next) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
+        // Validate new password pattern before anything
+        if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(newPassword)) {
+            return res.status(400).json({
+                message: 'Password must be at least 6 characters long and contain at least one letter and one number'
+            });
+        }
+
         const user = await User.findById(req.user._id).select('+password');
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
         if (!(await bcrypt.compare(currentPassword, user.password))) {
             return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
-        user.password = newPassword;
+        user.password = newPassword; // will be hashed automatically in pre-save
+        user.passwordChangedAt = Date.now();
+
         await user.save();
 
         res.status(200).json({
             status: 'success',
             message: 'Password updated successfully'
         });
+
     } catch (err) {
         next({ message: 'Failed to update password', error: err.message });
     }
 };
+
 
 const deleteUser = async (req, res, next) => {
     try {
@@ -320,6 +356,244 @@ const deleteUser = async (req, res, next) => {
         });
     } catch (err) {
         next({ message: 'Failed to delete user', error: err.message });
+    }
+};
+
+// Add new address to address book
+const addAddressToBook = async (req, res, next) => {
+    try {
+        const { label, details, city } = req.body;
+
+        if (!label || !details || !city) {
+            return res.status(400).json({
+                message: 'All address fields are required'
+            });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $push: {
+                    addressBook: {
+                        label,
+                        details,
+                        city,
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            status: 'success',
+            data: user.addressBook
+        });
+    } catch (err) {
+        next({ message: 'Failed to add address', error: err.message });
+    }
+};
+
+// Update existing address in address book
+const updateAddressInBook = async (req, res, next) => {
+    try {
+        const { addressId } = req.params;
+        const { label, details, city } = req.body;
+
+        const user = await User.findOneAndUpdate(
+            {
+                _id: req.user._id,
+                'addressBook._id': addressId
+            },
+            {
+                $set: {
+                    'addressBook.$.label': label,
+                    'addressBook.$.details': details,
+                    'addressBook.$.city': city,
+                }
+            },
+            { new: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'Address not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: user.addressBook
+        });
+    } catch (err) {
+        next({ message: 'Failed to update address', error: err.message });
+    }
+};
+
+// Delete address from address book
+const deleteAddressFromBook = async (req, res, next) => {
+    try {
+        const { addressId } = req.params;
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $pull: {
+                    addressBook: { _id: addressId }
+                }
+            },
+            { new: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'Address not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: user.addressBook
+        });
+    } catch (err) {
+        next({ message: 'Failed to delete address', error: err.message });
+    }
+};
+
+// Get all addresses from address book
+const getAddressBook = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: user.addressBook
+        });
+    } catch (err) {
+        next({ message: 'Failed to get address book', error: err.message });
+    }
+};
+
+// Get all payment options
+const getPaymentOptions = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({
+                message: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: user.paymentOptions
+        });
+    } catch (err) {
+        next({ message: 'Failed to get payment options', error: err.message });
+    }
+};
+
+// Add new payment option
+const addPaymentOption = async (req, res, next) => {
+    try {
+        const { cardType, cardNumber, cardholderName } = req.body;
+
+        if (!cardType || !cardNumber || !cardholderName) {
+            return res.status(400).json({
+                message: 'All payment fields are required'
+            });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $push: {
+                    paymentOptions: {
+                        cardType,
+                        cardNumber,
+                        cardholderName
+                    }
+                }
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            status: 'success',
+            data: user.paymentOptions
+        });
+    } catch (err) {
+        next({ message: 'Failed to add payment option', error: err.message });
+    }
+};
+
+// Update existing payment option
+const updatePaymentOption = async (req, res, next) => {
+    try {
+        const { paymentOptionId } = req.params;
+        const { cardType, cardNumber, cardholderName } = req.body;
+
+        const user = await User.findOneAndUpdate(
+            {
+                _id: req.user._id,
+                'paymentOptions._id': paymentOptionId
+            },
+            {
+                $set: {
+                    'paymentOptions.$.cardType': cardType,
+                    'paymentOptions.$.cardNumber': cardNumber,
+                    'paymentOptions.$.cardholderName': cardholderName
+                }
+            },
+            { new: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'Payment option not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: user.paymentOptions
+        });
+    } catch (err) {
+        next({ message: 'Failed to update payment option', error: err.message });
+    }
+};
+
+// Delete payment option
+const deletePaymentOption = async (req, res, next) => {
+    try {
+        const { paymentOptionId } = req.params;
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $pull: {
+                    paymentOptions: { _id: paymentOptionId }
+                }
+            },
+            { new: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({
+                message: 'Payment option not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: user.paymentOptions
+        });
+    } catch (err) {
+        next({ message: 'Failed to delete payment option', error: err.message });
     }
 };
 const getWishlist = async (req, res, next) => {
@@ -548,5 +822,13 @@ module.exports = {
     addAddress,
     removeAddress,
     googleLogin,
-    getWishlist
+    getWishlist,
+    addAddressToBook,
+    updateAddressInBook,
+    deleteAddressFromBook,
+    getAddressBook,
+    getPaymentOptions,
+    addPaymentOption,
+    updatePaymentOption,
+    deletePaymentOption
 };
