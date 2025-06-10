@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: [true, 'Phone number is required'],
             validate: {
-                validator: function(v) {
+                validator: function (v) {
                     return /^[0-9]{10,15}$/.test(v);
                 },
                 message: props => `${props.value} is not a valid phone number`
@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
             required: [true, 'Password is required'],
             minlength: [6, 'Password must be at least 6 characters long'],
             validate: {
-                validator: function(v) {
+                validator: function (v) {
                     // At least one letter and one number
                     return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(v);
                 },
@@ -74,6 +74,56 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        addresses: {
+            type: [String],
+            default: []
+        },
+        addressBook: [{
+            label: {
+                type: String,
+                // required: true,
+                trim: true
+            },
+            details: {
+                type: String,
+                // required: true,
+                trim: true
+            },
+            city: {
+                type: String,
+                // required: true,
+                trim: true
+            }
+        }],
+        paymentOptions: [{
+            cardType: {
+                type: String,
+                enum: ['Visa', 'MasterCard', 'American Express', 'Discover','Bank Transfer'],
+                required: true
+            },
+            cardNumber: {
+                type: String,
+                required: true,
+                validate: {
+                    validator: function(v) {
+                        // Basic card number validation
+                        return /^[0-9]{13,16}$/.test(v);
+                    },
+                    message: 'Card number must be between 13 and 16 digits'
+                }
+            },
+            cardholderName: {
+                type: String,
+                required: true,
+                trim: true,
+                validate: {
+                    validator: function(v) {
+                        return /^[a-zA-Z\s]+$/.test(v);
+                    },
+                    message: 'Cardholder name must contain only letters and spaces'
+                }
+            },
+        }],
     },
     { timestamps: true }
 );
@@ -87,5 +137,4 @@ userSchema.pre('save', async function (next) {
 
 const User = mongoose.model('User', userSchema);
 
-module.exports = User;
 module.exports = User;
