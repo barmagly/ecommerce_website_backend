@@ -22,7 +22,12 @@ exports.filterProducts = catchAsync(async (req, res, next) => {
 
         // Stock status filtering
         if (req.query.inStock) {
-            filters.inStock = req.query.inStock.toLowerCase() === 'true';
+            const inStock = req.query.inStock.toLowerCase() === 'true';
+            if (inStock) {
+                filters.stock = { $gt: 0 };
+            } else {
+                filters.stock = { $eq: 0 };
+            }
         }
 
         // Rating filtering
@@ -34,13 +39,20 @@ exports.filterProducts = catchAsync(async (req, res, next) => {
         if (req.query.search) {
             const searchRegex = new RegExp(req.query.search, 'i');
             filters.$or = [
-                { title: searchRegex },
+                { name: searchRegex },
                 { description: searchRegex }
             ];
         }
 
-        // Sort options
-        const sort = req.query.sort ? req.query.sort.split(',').join(' ') : '-createdAt';
+        // Sorting
+        let sort = {};
+        if (req.query.sort) {
+            const sortField = req.query.sort.startsWith('-') ? req.query.sort.slice(1) : req.query.sort;
+            const sortOrder = req.query.sort.startsWith('-') ? -1 : 1;
+            sort[sortField] = sortOrder;
+        } else {
+            sort = { createdAt: -1 }; // Default sort by newest
+        }
 
         // Pagination
         const page = parseInt(req.query.page) || 1;
@@ -52,7 +64,6 @@ exports.filterProducts = catchAsync(async (req, res, next) => {
             .sort(sort)
             .skip(skip)
             .limit(limit)
-            .populate('variants');
 
         // Get total count for pagination
         const totalProducts = await Product.countDocuments(filters);
@@ -142,7 +153,7 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
 
         const products = await Product.find()
             .populate('productVariants')
-            .sort('-createdAt');
+            // .sort('-createdAt');
 
         res.status(200).json({
             status: 'success',
