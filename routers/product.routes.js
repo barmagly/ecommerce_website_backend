@@ -200,8 +200,9 @@ router.get('/', productController.getAllProducts);
  *                     $ref: '#/components/schemas/Product'
  *       500:
  *         description: Internal server error
- */
+*/
 router.get('/filter', productController.filterProducts);
+router.get('/category/:id',productController.getCategoryProducts)
 
 /**
  * @swagger

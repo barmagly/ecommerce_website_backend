@@ -263,3 +263,25 @@ exports.deleteProduct = catchAsync(async (req, res, next) => {
         });
     }
 });
+
+exports.getCategoryProducts = catchAsync(async(req,res,next)=>{
+    try {
+        
+        const products = await Product.find({category:req.params.id})
+        // console.log(products);
+        if(!products)
+        {
+            return next(new AppError('no products for this category'))
+        }
+
+        res.status(200).json(
+            products
+        )
+    } catch (error) {
+         res.status(500).json({
+            status: 'error',
+            message: 'Failed to get the products of the category',
+            error: error.message
+        });
+    }
+})
