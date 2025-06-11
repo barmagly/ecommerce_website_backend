@@ -8,11 +8,31 @@ const { default: mongoose } = require('mongoose');
 // Configure multer for file upload
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single('image');
+// utils/mailer.js
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'barmaglyy@gmail.com',
+        pass: 'vyel kuus cuxp kgnc'
+    }
+});
+
+const sendMail = async (to, subject, html) => {
+    await transporter.sendMail({
+        from: '"BarmaGly" <barmaglyy@gmail.com>',
+        to,
+        subject,
+        html
+    });
+};
+
+module.exports = { sendMail };
 
 // Create order with optional image upload
 const createOrder = async (req, res, next) => {
     try {
-        // رفع الصورة إن وجدت
         let imageUrl = '';
         if (req.file) {
             const cloudinaryResponse = await uploadToCloudinary(req.file, 'orders');
@@ -21,7 +41,6 @@ const createOrder = async (req, res, next) => {
 
         const userId = req.user.id;
 
-        // جلب السلة والتحقق منها
         const cart = await Cart.findOne({ userID: userId }).populate('cartItems.prdID');
         if (!cart || !cart.cartItems.length) {
             return res.status(400).json({
@@ -30,7 +49,6 @@ const createOrder = async (req, res, next) => {
             });
         }
 
-        // تجهيز بيانات الأصناف والتحقق من المخزون
         const orderItems = await Promise.all(cart.cartItems.map(async (item) => {
             const product = await Product.findById(item.prdID);
             if (!product) {
@@ -70,12 +88,10 @@ const createOrder = async (req, res, next) => {
             };
         }));
 
-        // بدء session للـ transaction
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // إنشاء الطلب
             const [order] = await Order.create([
                 {
                     user: userId,
@@ -87,7 +103,6 @@ const createOrder = async (req, res, next) => {
                 }
             ], { session });
 
-            // تحديث المخزون
             for (const item of cart.cartItems) {
                 if (item.variantId) {
                     await ProductVariant.findByIdAndUpdate(
@@ -104,19 +119,60 @@ const createOrder = async (req, res, next) => {
                 }
             }
 
-            // حذف السلة
             await Cart.findOneAndDelete({ userID: userId }, { session });
 
-            // إنهاء المعاملة
             await session.commitTransaction();
 
-            // Populate الطلب
             const populatedOrder = await Order.findById(order._id)
                 .populate('user')
                 .populate('cartItems.product')
                 .populate('cartItems.variantId');
 
             res.status(201).json({ status: 'success', order: populatedOrder });
+
+            const orderRows = order.cartItems.map(item => {
+                return `
+                    <tr>
+                        <td>
+                            <img src="${item.image}" alt="${item.name}" style="width: 60px; height: auto; display: block; margin-bottom: 5px;" />
+                            ${item.name}
+                        </td>
+                        <td>${item.quantity}</td>
+                        <td>${item.price} ج.م</td>
+                        <td>${item.price * item.quantity} ج.م</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const htmlContent = `
+                <div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+                    <h2 style="color: #333;">تفاصيل الطلب رقم: ${order._id}</h2>
+                    <p>شكراً لك على طلبك من متجرنا!</p>
+            
+                    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; text-align: center;">
+                        <thead style="background-color: #f2f2f2;">
+                            <tr>
+                                <th>المنتج</th>
+                                <th>الكمية</th>
+                                <th>السعر الفردي</th>
+                                <th>الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orderRows}
+                        </tbody>
+                    </table>
+            
+                    <p style="margin-top: 15px;"><strong>الإجمالي الكلي:</strong> ${order.total} ج.م</p>
+            
+                    <hr style="margin: 30px 0;" />
+            
+                    <p style="text-align: center; color: #777;">مع تحيات فريق <strong style="color: #0d6efd;">برمجلي</strong> 👨‍💻💙</p>
+                </div>
+            `;
+
+            await sendMail(req.user.email, 'تم إنشاء طلبك بنجاح', htmlContent);
+
         } catch (error) {
             await session.abortTransaction();
             throw error;
@@ -209,6 +265,8 @@ const updateOrderStatus = async (req, res, next) => {
         }
 
         res.status(200).json({ status: 'success', order });
+        await sendMail(order.user.email, 'تم تحديث حالة الطلب', `تم تغيير حالة طلبك إلى: ${order.status}`);
+
     } catch (err) {
         res.status(500).json({
             status: 'error', message: "Failed to update order status", error: err.message
@@ -322,6 +380,7 @@ const cancelOrder = async (req, res, next) => {
             .populate('items.product');
 
         res.status(200).json({ status: 'success', populatedOrder });
+        await sendMail(order.user.email, 'تم إلغاء الطلب', `تم إلغاء طلبك رقم ${order._id}.`);
     } catch (err) {
         res.status(500).json({
             status: 'error', message: "Failed to cancel order", error: err.message
