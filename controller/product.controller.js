@@ -1,14 +1,162 @@
 const { Product, ProductVariant } = require('../models/product.model');
+const Order = require('../models/order.model');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
-// Filter products based on various criteria
+exports.getNewArrivals = catchAsync(async (req, res, next) => {
+    try {
+        const products = await Product.find()
+            .sort({ createdAt: -1 })
+            .limit(4)
+            .populate('productVariants');
+
+        res.status(200).json({
+            status: 'success',
+            results: products.length,
+            data: products
+        });
+    } catch (error) {
+        next(new AppError('Failed to fetch new arrivals', 500));
+    }
+});
+
+exports.getBestSellers = catchAsync(async (req, res, next) => {
+    try {
+        const bestSellingItems = await Order.aggregate([
+            { $match: { status: { $in: ['delivered', 'shipped','processing'] } } },
+            { $unwind: '$cartItems' },
+            {
+                $group: {
+                    _id: {
+                        product: '$cartItems.product',
+                        variant: '$cartItems.variantId'
+                    },
+                    totalSold: { $sum: '$cartItems.quantity' },
+                    productName: { $first: '$cartItems.product.name' },
+                    productPrice: { $first: '$cartItems.product.price' },
+                    productImage: { $first: '$cartItems.product.imageCover' }
+                }
+            },
+            { $sort: { totalSold: -1 } },
+            { $limit: 4 },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: '_id.product',
+                    foreignField: '_id',
+                    as: 'productDetails'
+                }
+            },
+            { $unwind: '$productDetails' },
+            {
+                $lookup: {
+                    from: 'productvariants',
+                    localField: '_id.variant',
+                    foreignField: '_id',
+                    as: 'variantDetails'
+                }
+            },
+            {
+                $project: {
+                    _id: '$productDetails._id',
+                    name: {
+                        $cond: {
+                            if: { $gt: [{ $size: '$variantDetails' }, 0] },
+                            then: { $arrayElemAt: ['$variantDetails.name', 0] },
+                            else: '$productDetails.name'
+                        }
+                    },
+                    price: {
+                        $cond: {
+                            if: { $gt: [{ $size: '$variantDetails' }, 0] },
+                            then: { $arrayElemAt: ['$variantDetails.price', 0] },
+                            else: '$productDetails.price'
+                        }
+                    },
+                    image: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $gt: [{ $size: '$variantDetails' }, 0] },
+                                    { $gt: [{ $size: { $ifNull: [{ $arrayElemAt: ['$variantDetails.images', 0] }, []] } }, 0] }
+                                ]
+                            },
+                            then: { $arrayElemAt: ['$variantDetails.images.url', 0] },
+                            else: '$productDetails.imageCover'
+                        }
+                    },
+                    totalSold: 1,
+                    hasVariants: { $gt: [{ $size: { $ifNull: ['$productDetails.productVariants', []] } }, 0] },
+                    variant: {
+                        $cond: {
+                            if: { $gt: [{ $size: '$variantDetails' }, 0] },
+                            then: { $arrayElemAt: ['$variantDetails', 0] },
+                            else: null
+                        }
+                    }
+                }
+            }
+        ]);
+
+        if (bestSellingItems.length === 0) {
+            const defaultProducts = await Product.find()
+                .sort({ createdAt: -1 })
+                .limit(4)
+                .populate('productVariants');
+                
+            return res.status(200).json({
+                status: 'success',
+                results: defaultProducts.length,
+                data: defaultProducts
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            results: bestSellingItems.length,
+            data: bestSellingItems
+        });
+    } catch (error) {
+        console.error('Error fetching best sellers:', error);
+        next(new AppError('Failed to fetch best sellers: ' + error.message, 500));
+    }
+});
+
+exports.getMostReviewed = catchAsync(async (req, res, next) => {
+    try {
+        const products = await Product.aggregate([
+            {
+                $addFields: {
+                    reviewCount: { $ifNull: ['$ratings.count', 0] }
+                }
+            },
+            { $sort: { reviewCount: -1 } },
+            { $limit: 4 },
+            {
+                $lookup: {
+                    from: 'productvariants',
+                    localField: '_id',
+                    foreignField: 'product',
+                    as: 'productVariants'
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            status: 'success',
+            results: products.length,
+            data: products
+        });
+    } catch (error) {
+        next(new AppError('Failed to fetch most reviewed products', 500));
+    }
+});
+
 exports.filterProducts = catchAsync(async (req, res, next) => {
     try {
         const filters = {};
         
-        // Price range filtering
         if (req.query.minPrice || req.query.maxPrice) {
             filters.price = {};
             if (req.query.minPrice) filters.price.$gte = parseFloat(req.query.minPrice);

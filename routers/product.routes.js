@@ -9,6 +9,81 @@ const router = express.Router();
 
 /**
  * @swagger
+ * /api/products/new-arrivals:
+ *   get:
+ *     summary: Get 4 newest products
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved new arrivals
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 results:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ */
+router.get('/new-arrivals', productController.getNewArrivals);
+
+/**
+ * @swagger
+ * /api/products/best-sellers:
+ *   get:
+ *     summary: Get 4 best selling products
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved best sellers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 results:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ */
+router.get('/best-sellers', productController.getBestSellers);
+
+/**
+ * @swagger
+ * /api/products/most-reviewed:
+ *   get:
+ *     summary: Get 4 most reviewed products
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved most reviewed products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 results:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ */
+router.get('/most-reviewed', productController.getMostReviewed);
+
+/**
+ * @swagger
  * components:
  *   schemas:
  *     Variant:
