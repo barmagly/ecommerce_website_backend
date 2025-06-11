@@ -1,5 +1,6 @@
 const Review = require('../models/review.model.js');
 const { Product, ProductVariant } = require('../models/product.model');
+const Order = require('../models/order.model');
 const getAllReviews = async (req, res, next) => {
     try {
         const reviews = await Review.find()
@@ -42,8 +43,15 @@ const getProductReviews = async (req, res, next) => {
 
 const createReview = async (req, res, next) => {
     try {
-        const userId= req.user._id; // Assuming user ID is stored in req.user
+        const userId = req.user._id;
         const { productId, rating, comment } = req.body;
+
+        // Validate rating
+        if (rating < 0 || rating > 5) {
+            return res.status(400).json({
+                message: "Rating must be between 0 and 5"
+            });
+        }
 
         // Check if user has already reviewed this product
         const existingReview = await Review.findOne({
@@ -57,7 +65,7 @@ const createReview = async (req, res, next) => {
             });
         }
         
-        const product = await Product.findById(productId );
+        const product = await Product.findById(productId);
         
         if (!product) {
             return res.status(404).json({ message: "Product not found" });
@@ -70,19 +78,39 @@ const createReview = async (req, res, next) => {
             comment
         });
 
-        // Update product average rating
+        // Update product ratings
         const productReviews = await Review.find({ productId });
-        const avgRating = productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length;
+        const ratingsCount = productReviews.length;
+        
+        // Calculate distribution
+        const distribution = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0
+        };
+        
+        let totalRating = 0;
+        productReviews.forEach(r => {
+            distribution[r.rating]++;
+            totalRating += r.rating;
+        });
+
+        const averageRating = Math.round((totalRating / ratingsCount) * 10) / 10;
 
         await Product.findByIdAndUpdate(productId, {
-            averageRating: avgRating,
-            numberOfReviews: productReviews.length
+            $set: {
+                'ratings.average': averageRating,
+                'ratings.count': ratingsCount,
+                'ratings.distribution': distribution
+            }
         });
 
         const populatedReview = await review
             .populate('userId productId');
 
-        res.status(201).json({ status: 'success',  populatedReview });
+        res.status(201).json({ status: 'success', populatedReview });
     } catch (err) {
         next({ message: "Failed to create review", error: err.message });
     }
@@ -92,27 +120,55 @@ const updateReview = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { rating, comment } = req.body;
-        const review = await Review.findOne({_id:id,userId: req.user._id}); // Ensure the user is updating their own review
+        const review = await Review.findOne({_id:id,userId: req.user._id});
         if (!review) {
             return res.status(404).json({ message: "Review not found" });
         }
-         review = await Review.findOneAndUpdate(
-            {_id:id,userId: req.user._id}, // Ensure the user is updating their own review
+
+        // Validate rating
+        if (rating < 0 || rating > 5) {
+            return res.status(400).json({
+                message: "Rating must be between 0 and 5"
+            });
+        }
+
+        const updatedReview = await Review.findOneAndUpdate(
+            {_id:id,userId: req.user._id},
             { rating, comment },
             { new: true, runValidators: true }
         ).populate('userId')
          .populate('productId');
 
-
-        // Update product average rating
-        const productReviews = await Review.find({ productId: review.productId });
-        const avgRating = productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length;
-
-        await Product.findByIdAndUpdate(review.productId, {
-            averageRating: avgRating
+        // Update product ratings
+        const productReviews = await Review.find({ productId: updatedReview.productId });
+        const ratingsCount = productReviews.length;
+        
+        // Calculate distribution
+        const distribution = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0
+        };
+        
+        let totalRating = 0;
+        productReviews.forEach(r => {
+            distribution[r.rating]++;
+            totalRating += r.rating;
         });
 
-        res.status(200).json({ status: 'success',  review });
+        const averageRating = Math.round((totalRating / ratingsCount) * 10) / 10;
+
+        await Product.findByIdAndUpdate(updatedReview.productId, {
+            $set: {
+                'ratings.average': averageRating,
+                'ratings.count': ratingsCount,
+                'ratings.distribution': distribution
+            }
+        });
+
+        res.status(200).json({ status: 'success', review: updatedReview });
     } catch (err) {
         next({ message: "Failed to update review", error: err.message });
     }
@@ -121,9 +177,7 @@ const updateReview = async (req, res, next) => {
 const deleteReview = async (req, res, next) => {
     try {
         const { id } = req.params;
-        console.log(req.user);
-        
-        const review = await Review.findOne({_id:id,userId: req.user._id}); // Ensure the user is deleting their own review
+        const review = await Review.findOne({_id:id,userId: req.user._id});
         if (!review) {
             return res.status(404).json({ message: "Review not found" });
         }
@@ -132,20 +186,69 @@ const deleteReview = async (req, res, next) => {
 
         await Review.findByIdAndDelete(id);
 
-        // Update product average rating
+        // Update product ratings
         const productReviews = await Review.find({productId});
-        const avgRating = productReviews.length 
-            ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length
+        const ratingsCount = productReviews.length;
+        
+        // Calculate distribution
+        const distribution = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0
+        };
+        
+        let totalRating = 0;
+        productReviews.forEach(r => {
+            distribution[r.rating]++;
+            totalRating += r.rating;
+        });
+
+        const averageRating = ratingsCount 
+            ? Math.round((totalRating / ratingsCount) * 10) / 10
             : 0;
 
         await Product.findByIdAndUpdate(productId, {
-            averageRating: avgRating,
-            numberOfReviews: productReviews.length
+            $set: {
+                'ratings.average': averageRating,
+                'ratings.count': ratingsCount,
+                'ratings.distribution': distribution
+            }
         });
         
-        res.status(204).json({ status: 'success delete' });
+        res.status(204).json({ status: 'success' });
     } catch (err) {
         next({ message: "Failed to delete review", error: err.message });
+    }
+};
+
+
+
+const checkPurchase = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const { productId } = req.params;
+
+        // Verify product exists
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        // Check if user has purchased this product
+        const order = await Order.findOne({
+            userId,
+            'items.productId': productId,
+            status: { $in: ['delivered', 'completed'] }
+        });
+
+        res.status(200).json({
+            status: 'success',
+            hasPurchased: !!order
+        });
+    } catch (err) {
+        next({ message: "Failed to check purchase status", error: err.message });
     }
 };
 
@@ -155,5 +258,6 @@ module.exports = {
     getProductReviews,
     createReview,
     updateReview,
-    deleteReview
+    deleteReview,
+    checkPurchase
 };

@@ -7,7 +7,8 @@ const {
     getProductReviews,
     createReview,
     updateReview,
-    deleteReview
+    deleteReview,
+    checkPurchase
 } = require('../controller/review');
 
 /**
@@ -127,6 +128,39 @@ const {
  *                     $ref: '#/components/schemas/Review'
  *       404:
  *         description: Product not found
+ */
+
+/**
+ * @swagger
+ * /api/reviews/check-purchase/{productId}:
+ *   get:
+ *     summary: Check if user has purchased a product
+ *     tags: [Reviews]
+ *     parameters:
+ *       - in: query
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Purchase status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 hasPurchased:
+ *                   type: boolean
+ *                   example: true
+ *       404:
+ *         description: Product not found
+ *       403:
+ *         description: User not authenticated
  */
 
 /**
@@ -252,5 +286,9 @@ router.get('/product/:productId', getProductReviews);
 router.post('/', isAuthenticated, createReview);
 router.patch('/:id', isAuthenticated, updateReview);
 router.delete('/:id', isAuthenticated, deleteReview);
+
+// Check purchase route
+router.get('/check-purchase/:productId', isAuthenticated, checkPurchase);
+
 
 module.exports = router;
