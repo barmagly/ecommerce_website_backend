@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
         },
         phone: {
             type: String,
-            required: [true, 'Phone number is required'],
+            // required: [true, 'Phone number is required'],
             validate: {
                 validator: function (v) {
                     return /^[0-9]{10,15}$/.test(v);
@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
         profileImg: String,
         password: {
             type: String,
-            required: [true, 'Password is required'],
+            // required: [true, 'Password is required'],
             minlength: [6, 'Password must be at least 6 characters long'],
             validate: {
                 validator: function (v) {
@@ -99,11 +99,11 @@ const userSchema = new mongoose.Schema(
             cardType: {
                 type: String,
                 enum: ['Visa', 'MasterCard', 'American Express', 'Discover','Bank Transfer'],
-                required: true
+                // required: true
             },
             cardNumber: {
                 type: String,
-                required: true,
+                // required: true,
                 validate: {
                     validator: function(v) {
                         // Basic card number validation
@@ -114,7 +114,7 @@ const userSchema = new mongoose.Schema(
             },
             cardholderName: {
                 type: String,
-                required: true,
+                // required: true,
                 trim: true,
                 validate: {
                     validator: function(v) {
