@@ -760,9 +760,10 @@ const googleLogin = async (req, res) => {
             const mailOptions = {
                 from: 'barmaglyy@gmail.com',
                 to: email,
-                subject: 'Welcome to our platform!',
-                text: `Hello ${name},\n\nThank you for signing up with us! We're excited to have you onboard in our platform. 😊`
+                subject: 'مرحبًا بك في منصتنا!',
+                text: `مرحبًا ${name}،\n\nشكرًا لانضمامك إلينا! نحن سعداء بانضمامك إلى منصتنا ونتمنى لك تجربة رائعة 😊`
             };
+
 
             transporter.sendMail(mailOptions, (error, info) => {
                 if (error) {
