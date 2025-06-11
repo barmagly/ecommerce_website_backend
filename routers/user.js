@@ -42,7 +42,9 @@ const {
     getPaymentOptions,
     addPaymentOption,
     updatePaymentOption,
-    deletePaymentOption
+    deletePaymentOption,
+    forgotPassword,
+    resetPassword
 } = require('../controller/user');
 
 /**
@@ -191,6 +193,71 @@ const {
 router.post('/register', register);
 router.post('/login', login);
 router.post('/google-login', googleLogin);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
+
+// Protected routes (require authentication)
+router.use(isAuthenticated);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Reset password email sent
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Error sending reset email
+ */
+
+/**
+ * @swagger
+ * /api/auth/reset-password/{token}:
+ *   post:
+ *     summary: Reset user password
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Password reset token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired reset token
+ *       404:
+ *         description: User not found
+ */
 
 /**
  * @swagger

@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const User = require('../models/user.model');
 const { Product, ProductVariant } = require('../models/product.model');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Generate JWT Token
@@ -716,7 +719,6 @@ const removeAddress = async (req, res, next) => {
 //------------------------------------------------------------
 
 const { OAuth2Client } = require('google-auth-library');
-const nodemailer = require('nodemailer');
 
 const client = new OAuth2Client('812727128915-pjdracpnf7dalh7ppeagmtfhkea0vf3s.apps.googleusercontent.com');
 
@@ -809,21 +811,112 @@ const googleLogin = async (req, res) => {
 };
 
 
+
+const generateResetToken = () => {
+    return crypto.randomBytes(20).toString('hex');
+};
+
+const generateTokenExpiration = () => {
+    return Date.now() + 10 * 60 * 1000; // 10 minutes
+};
+
+const forgotPassword = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if user is a Google user
+        if (user.isGoogleUser) {
+            return res.status(400).json({
+                message: 'Google users cannot reset their password. Please use Google to sign in.'
+            });
+        }
+
+        const resetToken = generateResetToken();
+        const tokenExpiration = generateTokenExpiration();
+
+        user.validate = () => { };
+
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = tokenExpiration;
+        await user.save();
+
+        const resetUrl = `https://ecommerce-website-cyan-pi.vercel.app/reset-password/${resetToken}`;
+        const mailOptions = {
+            from: 'barmaglyy@gmail.com',
+            to: email,
+            subject: 'طلب إعادة تعيين كلمة المرور',
+            text: `لقد تلقّيت هذا البريد الإلكتروني لأنك (أو شخصًا آخر) طلبت إعادة تعيين كلمة المرور لحسابك.\n\nيرجى النقر على الرابط التالي أو نسخه ولصقه في المتصفح لإتمام العملية:\n${resetUrl}\n\nإذا لم تطلب ذلك، يمكنك تجاهل هذا البريد، وستظل كلمة المرور الخاصة بك كما هي.\n\nيرجى ملاحظة أن هذا الرابط سينتهي خلال 10 دقائق.\n\nإذا واجهت أي مشكلة أو كنت بحاجة إلى مساعدة، لا تتردد في التواصل معنا.\n\nمع تحياتنا،\nفريق برمجلي ❤️`
+        };
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.log('Error sending email:', error);
+                return res.status(500).json({ message: 'Error sending reset email' });
+            }
+            res.status(200).json({ message: 'Reset password email sent' });
+        });
+    } catch (err) {
+        next({ message: 'Error processing forgot password request', error: err.message });
+    }
+};
+
+const resetPassword = async (req, res, next) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        // Find user with matching reset token
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({
+                message: 'Invalid or expired reset token'
+            });
+        }
+
+        if (user.isGoogleUser) {
+            return res.status(400).json({
+                message: 'Google users cannot reset their password. Please use Google to sign in.'
+            });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        user.password = hashedPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+
+        await User.findByIdAndUpdate(user._id, {
+            password: hashedPassword,
+            resetPasswordToken: undefined,
+            resetPasswordExpires: undefined
+        }, { new: true });
+
+        res.status(200).json({
+            message: 'Password reset successful'
+        });
+    } catch (err) {
+        console.error('Password reset error:', err);
+        next({ message: 'Error resetting password', error: err.message });
+    }
+};
+
 module.exports = {
     register,
     login,
     getAllUsers,
     getUserById,
-    updateUser,
-    deleteUser,
-    updatePassword,
     getProfile,
-    addToWishlist,
-    removeFromWishlist,
-    addAddress,
-    removeAddress,
-    googleLogin,
-    getWishlist,
+    updateUser,
+    updatePassword,
+    deleteUser,
     addAddressToBook,
     updateAddressInBook,
     deleteAddressFromBook,
@@ -831,5 +924,13 @@ module.exports = {
     getPaymentOptions,
     addPaymentOption,
     updatePaymentOption,
-    deletePaymentOption
+    deletePaymentOption,
+    getWishlist,
+    addToWishlist,
+    removeFromWishlist,
+    addAddress,
+    removeAddress,
+    googleLogin,
+    forgotPassword,
+    resetPassword
 };

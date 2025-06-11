@@ -37,21 +37,31 @@ const userSchema = new mongoose.Schema(
             }
         },
         profileImg: String,
+        resetPasswordToken: String,
+        resetPasswordExpires: Date,
         password: {
             type: String,
             // required: [true, 'Password is required'],
             minlength: [6, 'Password must be at least 6 characters long'],
             validate: {
                 validator: function (v) {
+                    // Skip validation if this is a token operation
+                    if (this.resetPasswordToken) {
+                        return true;
+                    }
+                    
                     // At least one letter and one number
-                    return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(v);
+                    if (!v) return false; // If password is empty
+                    
+                    const hasLetter = /[a-zA-Z]/.test(v);
+                    const hasNumber = /\d/.test(v);
+                    
+                    return hasLetter && hasNumber;
                 },
                 message: 'Password must contain at least one letter and one number'
             }
         },
         passwordChangedAt: Date,
-        passwordResetCode: String,
-        passwordResetExpires: Date,
         role: {
             type: String,
             enum: ['user', 'admin'],
