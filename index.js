@@ -102,6 +102,17 @@ const startServer = async () => {
         app.use('/api/coupons', couponRouter);
         app.use('/api/dashboard', dashboardRouter);
 
+        // Admin login route (direct)
+        app.post('/api/admin/login', (req, res) => {
+            const { username, password } = req.body;
+            // Replace this with your real admin check or database lookup
+            if (username === 'admin' && password === 'admin') {
+                // You should generate a real JWT token here
+                return res.json({ token: 'your-jwt-token', user: { username: 'admin' } });
+            }
+            res.status(401).json({ message: 'Invalid credentials' });
+        });
+
         // Error handling middleware
         app.use((err, req, res, next) => {
             console.error('Error:', err);
