@@ -8,7 +8,7 @@ router.get('/', dashboardController.getDashboard);
 // Products routes
 router.get('/products', dashboardController.getProducts);
 router.post('/products', dashboardController.postProducts);
-router.put('/products/:id', dashboardController.putProducts);
+router.patch('/products/:id', dashboardController.putProducts);
 router.delete('/products/:id', dashboardController.deleteProducts);
 
 // Categories routes
