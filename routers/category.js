@@ -9,6 +9,7 @@ const {
     updateCategory,
     deleteCategory
 } = require('../controller/category');
+const upload = require('../middlewares/uploadMiddleware');
 
 /**
  * @swagger
@@ -193,8 +194,22 @@ router.get('/', getAllCategories);
 router.get('/:id', getCategoryById);
 
 // Admin only routes
-router.post('/', isAuthenticated, authorizeAdmin, createCategory);
-router.patch('/:id', isAuthenticated, authorizeAdmin, updateCategory);
+router.post('/', isAuthenticated, authorizeAdmin, upload.fields([
+    { name: 'image', maxCount: 1 }
+]), (req, res, next) => {
+    if (req.files && req.files.image) {
+        req.files.categoryImage = req.files.image;
+    }
+    next();
+}, createCategory);
+router.patch('/:id', isAuthenticated, authorizeAdmin,upload.fields([
+    { name: 'image', maxCount: 1 }
+]), (req, res, next) => {
+    if (req.files && req.files.image) {
+        req.files.categoryImage = req.files.image;
+    }
+    next();
+}, updateCategory);
 router.delete('/:id', isAuthenticated, authorizeAdmin, deleteCategory);
 
 module.exports = router;
