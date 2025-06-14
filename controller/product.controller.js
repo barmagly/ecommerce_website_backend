@@ -60,13 +60,7 @@ exports.getBestSellers = catchAsync(async (req, res, next) => {
             {
                 $project: {
                     _id: '$productDetails._id',
-                    name: {
-                        $cond: {
-                            if: { $gt: [{ $size: '$variantDetails' }, 0] },
-                            then: { $arrayElemAt: ['$variantDetails.name', 0] },
-                            else: '$productDetails.name'
-                        }
-                    },
+                    name:'$productDetails.name',
                     price: {
                         $cond: {
                             if: { $gt: [{ $size: '$variantDetails' }, 0] },
