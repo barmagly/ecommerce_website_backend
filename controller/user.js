@@ -6,6 +6,7 @@ const { Product, ProductVariant } = require('../models/product.model');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const client = require('../utils/googleAuth');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -718,10 +719,6 @@ const removeAddress = async (req, res, next) => {
 };
 //------------------------------------------------------------
 
-const { OAuth2Client } = require('google-auth-library');
-
-const client = new OAuth2Client('812727128915-pjdracpnf7dalh7ppeagmtfhkea0vf3s.apps.googleusercontent.com');
-
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -753,7 +750,8 @@ const googleLogin = async (req, res) => {
                 email,
                 googleId,
                 profileImg: picture,
-                isGoogleUser: true
+                isGoogleUser: true,
+                active: true
             });
 
             await user.save();
@@ -765,7 +763,6 @@ const googleLogin = async (req, res) => {
                 subject: 'مرحبًا بك في منصتنا!',
                 text: `مرحبًا ${name}،\n\nشكرًا لانضمامك إلينا! نحن سعداء بانضمامك إلى منصتنا ونتمنى لك تجربة رائعة 😊`
             };
-
 
             transporter.sendMail(mailOptions, (error, info) => {
                 if (error) {

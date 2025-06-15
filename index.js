@@ -13,6 +13,7 @@ const reviewRouter = require('./routers/review');
 const couponRouter = require('./routers/coupon');
 const userRouter = require('./routers/user');
 const dashboardRouter = require('./dashboard/index');
+const settingsRouter = require('./routers/settings');
 
 const app = express();
 
@@ -21,7 +22,7 @@ app.use(express.json());
 app.use(express.static('static'));
 // CORS configuration
 app.use(cors({
-    origin: '*',
+    origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecommerce-website-cyan-pi.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
         'Content-Type', 
@@ -101,6 +102,7 @@ const startServer = async () => {
         app.use('/api/reviews', reviewRouter);
         app.use('/api/coupons', couponRouter);
         app.use('/api/dashboard', dashboardRouter);
+        app.use('/api/settings', settingsRouter);
 
         // Admin login route (direct)
         app.post('/api/admin/login', (req, res) => {
@@ -117,10 +119,14 @@ const startServer = async () => {
         app.use((err, req, res, next) => {
             console.error('Error:', err);
             const status = err.status || err.statusCode || 500;
+            const message = err.message || err.error || 'Internal server error';
             res.status(status).json({
                 status: 'error',
-                message: err.message || 'Internal server error',
-                ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+                message: message,
+                ...(process.env.NODE_ENV === 'development' && { 
+                    stack: err.stack,
+                    details: err
+                })
             });
         });
 

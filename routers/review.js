@@ -8,7 +8,8 @@ const {
     createReview,
     updateReview,
     deleteReview,
-    checkPurchase
+    checkPurchase,
+    updateReviewStatus
 } = require('../controller/review');
 
 /**
@@ -290,5 +291,7 @@ router.delete('/:id', isAuthenticated, deleteReview);
 // Check purchase route
 router.get('/check-purchase/:productId', isAuthenticated, checkPurchase);
 
+// Add new route for updating review status
+router.patch('/:id/status', isAuthenticated, updateReviewStatus);
 
 module.exports = router;

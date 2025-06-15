@@ -284,13 +284,17 @@ router.use(isAuthenticated);
  *         description: Not authenticated
  */
 
-// Protected routes
-router.use(isAuthenticated);
+// Admin profile routes
+router.get('/admin/profile', authorizeAdmin, getProfile);
+router.put('/admin/profile', authorizeAdmin, upload.single('avatar'), updateUser);
+router.put('/admin/profile/password', authorizeAdmin, updatePassword);
+
+// User-specific protected routes
+router.get('/profile', getProfile);
+router.put('/profile', upload.single('avatar'), updateUser);
+router.put('/profile/password', updatePassword);
 
 // User routes
-router.get('/profile', getProfile);
-router.patch('/profile', upload.single('profileImg'), updateUser);
-router.patch('/password', updatePassword);
 router.get('/wishlist', getWishlist);
 
 // Address book routes

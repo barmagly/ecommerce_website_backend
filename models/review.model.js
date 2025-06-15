@@ -12,13 +12,12 @@ const reviewSchema = new mongoose.Schema(
             max: [5, 'Max ratings value is 5.0'],
             required: [true, 'review ratings required'],
         },
-        userId: {
+        user: {
             type: mongoose.Schema.ObjectId,
             ref: 'User',
             required: [true, 'Review must belong to user'],
         },
-        // parent reference (one to many)
-        productId: {
+        product: {
             type: mongoose.Schema.ObjectId,
             ref: 'Product',
             required: [true, 'Review must belong to product'],
@@ -26,5 +25,8 @@ const reviewSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+// Ensure a user can only review a product once
+reviewSchema.index({ product: 1, user: 1 }, { unique: true });
 
 module.exports = mongoose.model('Review', reviewSchema);

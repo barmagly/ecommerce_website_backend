@@ -5,6 +5,10 @@ const dashboardController = require('./controller');
 // Dashboard overview
 router.get('/', dashboardController.getDashboard);
 
+// Recent Orders and Top Products
+router.get('/recent-orders', dashboardController.getRecentOrders);
+router.get('/top-products', dashboardController.getTopProducts);
+
 // Products routes
 router.get('/products', dashboardController.getProducts);
 router.post('/products', dashboardController.postProducts);

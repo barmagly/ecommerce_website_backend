@@ -11,6 +11,24 @@ const dashboardController = {
     }
   },
 
+  async getRecentOrders(req, res) {
+    try {
+      const result = await dashboardModel.getRecentOrders();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  async getTopProducts(req, res) {
+    try {
+      const result = await dashboardModel.getTopProducts();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
   // Products CRUD
   async getProducts(req, res) {
     try {

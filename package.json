@@ -22,6 +22,7 @@
     "express": "^5.1.0",
     "express-async-handler": "^1.2.0",
     "google-auth-library": "^9.15.1",
+    "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.1",
     "mongoose-paginate-v2": "^1.9.1",
