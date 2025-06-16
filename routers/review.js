@@ -280,8 +280,9 @@ const {
 
 // Public routes
 router.get('/', getAllReviews);
-router.get('/:reviewId', getReviewById);
 router.get('/product/:productId', getProductReviews);
+router.get('/check-purchase/:productId', isAuthenticated, checkPurchase);
+router.get('/:reviewId', getReviewById);
 
 // Authenticated routes
 router.post('/', isAuthenticated, createReview);
@@ -289,7 +290,6 @@ router.patch('/:id', isAuthenticated, updateReview);
 router.delete('/:id', isAuthenticated, deleteReview);
 
 // Check purchase route
-router.get('/check-purchase/:productId', isAuthenticated, checkPurchase);
 
 // Add new route for updating review status
 router.patch('/:id/status', isAuthenticated, updateReviewStatus);

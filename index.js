@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(express.static('static'));
 // CORS configuration
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecommerce-website-cyan-pi.vercel.app'],
+    origin:'*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
         'Content-Type', 

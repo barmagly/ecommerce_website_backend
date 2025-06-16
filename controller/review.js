@@ -68,7 +68,7 @@ const createReview = async (req, res, next) => {
                 message: "Rating must be between 0 and 5"
             });
         }
-
+        
         // Check if user has already reviewed this product
         const existingReview = await Review.findOne({
             user,
@@ -408,11 +408,11 @@ const checkPurchase = async (req, res, next) => {
 
         // Check if user has purchased this product
         const order = await Order.findOne({
-            userId,
-            'items.productId': productId,
-            status: { $in: ['delivered', 'completed'] }
+            user: userId,
+            'cartItems.product': productId,
+            status: { $in: ['delivered', 'shipped'] }
         });
-
+        
         res.status(200).json({
             status: 'success',
             hasPurchased: !!order

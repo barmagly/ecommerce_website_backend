@@ -125,7 +125,10 @@ const deleteCoupon = catchAsyncError(async (req, res, next) => {
 
 const validateCoupon = catchAsyncError(async (req, res, next) => {
     const { code: rawCode } = req.params; // Get raw code from params
-    const code = rawCode.trim().toUpperCase(); // Trim and convert to uppercase
+    if(!rawCode || typeof rawCode !== 'string') {
+        return next(new ApiError('الكوبون غير صحيح', 400));
+    }
+    const code = req.params.name.toUpperCase(); // Trim and convert to uppercase
     const { productId } = req.query; // Optional: for product-specific validation
     const userId = req.user ? req.user._id : null; // Safely get userId
 
