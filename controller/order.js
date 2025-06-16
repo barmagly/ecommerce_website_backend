@@ -128,7 +128,7 @@ const createOrder = async (req, res, next) => {
                 .populate('cartItems.product')
                 .populate('cartItems.variantId');
 
-            res.status(201).json({ status: 'success', order: populatedOrder });
+
 
             const orderRows = order.cartItems.map(item => {
                 return `
@@ -172,6 +172,8 @@ const createOrder = async (req, res, next) => {
             `;
 
             await sendMail(req.user.email, 'تم إنشاء طلبك بنجاح', htmlContent);
+            // Send response once all operations succeed
+            res.status(201).json({ status: 'success', order: populatedOrder });
 
         } catch (error) {
             await session.abortTransaction();
@@ -180,11 +182,13 @@ const createOrder = async (req, res, next) => {
             session.endSession();
         }
     } catch (err) {
-        res.status(500).json({
-            status: 'error',
-            message: err.message || 'فشل في إنشاء الطلب',
-            error: err.message
-        });
+        if (!res.headersSent) {
+            res.status(500).json({
+                status: 'error',
+                message: err.message || 'فشل في إنشاء الطلب',
+                error: err.message
+            });
+        }
     }
 };
 
