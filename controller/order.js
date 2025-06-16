@@ -176,7 +176,9 @@ const createOrder = async (req, res, next) => {
             res.status(201).json({ status: 'success', order: populatedOrder });
 
         } catch (error) {
-            await session.abortTransaction();
+            if (session && session.inTransaction()) {
+                await session.abortTransaction();
+            }
             throw error;
         } finally {
             session.endSession();
@@ -348,7 +350,9 @@ const createOrderWithCart = async (req, res, next) => {
 
             res.status(201).json({ status: 'success', populatedOrder });
         } catch (error) {
-            await session.abortTransaction();
+            if (session && session.inTransaction()) {
+                await session.abortTransaction();
+            }
             session.endSession();
             throw error;
         }
