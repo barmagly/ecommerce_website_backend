@@ -722,8 +722,8 @@ const removeAddress = async (req, res, next) => {
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'barmaglyy@gmail.com',
-        pass: 'ltzx ajwp wgon qtxb'
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD
     }
 });
 
@@ -737,7 +737,7 @@ const googleLogin = async (req, res) => {
     try {
         const ticket = await client.verifyIdToken({
             idToken,
-            audience: '812727128915-pjdracpnf7dalh7ppeagmtfhkea0vf3s.apps.googleusercontent.com',
+            audience: process.env.GOOGLE_CLIENT_ID,
         });
 
         const payload = ticket.getPayload();
@@ -843,7 +843,7 @@ const forgotPassword = async (req, res, next) => {
 
         const resetUrl = `https://ecommerce-website-cyan-pi.vercel.app/reset-password/${resetToken}`;
         const mailOptions = {
-            from: 'barmaglyy@gmail.com',
+            from: process.env.EMAIL,
             to: email,
             subject: 'طلب إعادة تعيين كلمة المرور',
             text: `لقد تلقّيت هذا البريد الإلكتروني لأنك (أو شخصًا آخر) طلبت إعادة تعيين كلمة المرور لحسابك.\n\nيرجى النقر على الرابط التالي أو نسخه ولصقه في المتصفح لإتمام العملية:\n${resetUrl}\n\nإذا لم تطلب ذلك، يمكنك تجاهل هذا البريد، وستظل كلمة المرور الخاصة بك كما هي.\n\nيرجى ملاحظة أن هذا الرابط سينتهي خلال 10 دقائق.\n\nإذا واجهت أي مشكلة أو كنت بحاجة إلى مساعدة، لا تتردد في التواصل معنا.\n\nمع تحياتنا،\nفريق برمجلي ❤️`

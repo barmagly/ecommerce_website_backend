@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
+require('dotenv').config();
 
 // Import routers
 const productRouter = require('./routers/product.routes');
@@ -16,6 +17,7 @@ const dashboardRouter = require('./dashboard/index');
 const settingsRouter = require('./routers/settings');
 
 const app = express();
+console.log(process.env.PORT);
 
 // Middleware
 app.use(express.json());
@@ -54,7 +56,7 @@ async function connectToDatabase() {
     };
 
     try {
-        const db = await mongoose.connect('mongodb+srv://barmaglyy:Wr4sTf0EjgvwvEGn@ecommerc.orhrblw.mongodb.net/?retryWrites=true&w=majority&appName=Ecommerc', opts);
+        const db = await mongoose.connect(process.env.CONNECTION_STRING, opts);
         cachedDb = db;
         console.log('MongoDB connection established');
         return db;

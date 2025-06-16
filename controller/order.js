@@ -14,14 +14,14 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'barmaglyy@gmail.com',
-        pass: 'ltzx ajwp wgon qtxb'
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD
     }
 });
 
 const sendMail = async (to, subject, html) => {
     await transporter.sendMail({
-        from: '"BarmaGly" <barmaglyy@gmail.com>',
+        from: `"BarmaGly" <${process.env.EMAIL}>`,
         to,
         subject,
         html
