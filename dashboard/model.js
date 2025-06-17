@@ -116,7 +116,7 @@ const dashboardModel = {
       { $project: {
           _id: '$productDetails._id',
           name: '$productDetails.name',
-          imageCover: '$productDetails.image',
+          imageCover: '$productDetails.imageCover',
           category: '$categoryDetails',
           totalSold: 1,
           totalSales: 1,
