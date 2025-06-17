@@ -162,6 +162,14 @@ const login = async (req, res, next) => {
             });
         }
 
+        // Check if user is active
+        if (!user.active) {
+            return res.status(401).json({
+                message: 'Account is deactivated. Please contact support.',
+                field: 'email'
+            });
+        }
+
         // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
@@ -829,6 +837,13 @@ const googleLogin = async (req, res) => {
                 console.log('Error sending welcome email:', error);
             }
         } else {
+            // Check if existing user is active
+            if (!user.active) {
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'Account is deactivated. Please contact support.'
+                });
+            }
             console.log(`Existing user logged in: ${email}`);
         }
 

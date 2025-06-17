@@ -50,15 +50,13 @@ const userSchema = new mongoose.Schema(
                         return true;
                     }
                     
-                    // At least one letter and one number
-                    if (!v) return false; // If password is empty
+                    // If password is empty, it's valid (for updates)
+                    if (!v) return true;
                     
-                    const hasLetter = /[a-zA-Z]/.test(v);
-                    const hasNumber = /\d/.test(v);
-                    
-                    return hasLetter && hasNumber;
+                    // Just check minimum length
+                    return v.length >= 6;
                 },
-                message: 'Password must contain at least one letter and one number'
+                message: 'Password must be at least 6 characters long'
             }
         },
         passwordChangedAt: Date,
@@ -67,9 +65,14 @@ const userSchema = new mongoose.Schema(
             enum: ['user', 'admin'],
             default: 'user',
         },
+        status: {
+            type: String,
+            enum: ['active', 'blocked'],
+            default: 'active',
+        },
         active: {
             type: Boolean,
-            default: false,
+            default: true,
         },
         // child reference (one to many)
         wishlist: [
@@ -78,15 +81,14 @@ const userSchema = new mongoose.Schema(
                 ref: 'Product',
             },
         ],
-        addresses: String,
+        addresses: {
+            type: [String],
+            default: []
+        },
         googleId: String,
         isGoogleUser: {
             type: Boolean,
             default: false,
-        },
-        addresses: {
-            type: [String],
-            default: []
         },
         addressBook: [{
             label: {

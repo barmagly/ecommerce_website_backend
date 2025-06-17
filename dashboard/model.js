@@ -174,11 +174,21 @@ const dashboardModel = {
   // Users CRUD
   async getUsers() {
     const users = await User.find().select('-password');
+    
+    // Ensure all users have a status field
+    const usersWithStatus = users.map(user => {
+      const userObj = user.toObject();
+      if (!userObj.status) {
+        userObj.status = 'active';
+      }
+      return userObj;
+    });
+    
     return { 
-      users: users || [],
-      size: users.length,
-      total: users.length,
-      count: users.length
+      users: usersWithStatus || [],
+      size: usersWithStatus.length,
+      total: usersWithStatus.length,
+      count: usersWithStatus.length
     };
   },
   async postUsers(data) {
@@ -187,8 +197,13 @@ const dashboardModel = {
       throw new Error('Password is required for new users');
     }
     
-    if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(data.password)) {
-      throw new Error('Password must be at least 6 characters long and contain at least one letter and one number');
+    if (data.password.length < 6) {
+      throw new Error('Password must be at least 6 characters long');
+    }
+    
+    // Ensure status field has a default value
+    if (!data.status) {
+      data.status = 'active';
     }
     
     const user = await User.create(data);
@@ -198,10 +213,15 @@ const dashboardModel = {
     // Handle password update if provided
     if (data.password) {
       // Validate password pattern
-      if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(data.password)) {
-        throw new Error('Password must be at least 6 characters long and contain at least one letter and one number');
+      if (data.password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
       }
       data.passwordChangedAt = Date.now();
+    }
+    
+    // Ensure status field has a default value if not provided
+    if (!data.status) {
+      data.status = 'active';
     }
     
     const user = await User.findByIdAndUpdate(id, data, { new: true }).select('-password');
