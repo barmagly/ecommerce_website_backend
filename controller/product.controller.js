@@ -233,16 +233,19 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 
         // Upload cover image first
         const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
-if(req.body.sku){
-    const variant = await ProductVariant.findOne({ sku: req.body.sku });
-    if (variant) {
-        return res.status(400).json({
-            success: false,
-            status: 'error',
-            message: 'Variant with this SKU already exists'
-        });
-    }
-}
+        
+        // Check if SKU already exists
+        if (req.body.sku) {
+            const variant = await ProductVariant.findOne({ sku: req.body.sku });
+            if (variant) {
+                return res.status(400).json({
+                    success: false,
+                    status: 'error',
+                    message: 'Variant with this SKU already exists'
+                });
+            }
+        }
+
         // Upload additional images if provided
         let productImages = [];
         if (req.files.images) {
@@ -250,7 +253,7 @@ if(req.body.sku){
                 const result = await uploadToCloudinary(file, 'products');
                 productImages.push({
                     url: result.url,
-                    alt: req.body.title,
+                    alt: req.body.name || 'Product image',
                     isPrimary: productImages.length === 0 // First image is primary
                 });
             }
@@ -356,7 +359,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
                    const result = await uploadToCloudinary(file, 'products');
                    newImages.push({
                        url: result.url,
-                       alt: req.body.title || product.title,
+                       alt: req.body.name || product.name,
                        isPrimary: newImages.length === 0
                    });
                }
@@ -386,18 +389,21 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
 // Delete product
 exports.deleteProduct = catchAsync(async (req, res, next) => {
     try {
-
         const product = await Product.findById(req.params.id);
         if (!product) {
             return next(new AppError('No product found with that ID', 404));
         }
-        product = await Product.findByIdAndDelete(req.params.id);
 
+        // Delete all related variants first
+        await ProductVariant.deleteMany({ product: req.params.id });
 
-        res.status(204).json({
-            status: 'success delete'
-        });
+        // Delete the product itself
+        await Product.findByIdAndDelete(req.params.id);
+
+        // Return 204 No Content for successful deletion
+        res.status(204).send();
     } catch (error) {
+        console.error('Delete product error:', error);
         res.status(500).json({
             status: 'error',
             message: 'Failed to delete product',
