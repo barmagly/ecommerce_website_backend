@@ -66,6 +66,12 @@ const createOrder = async (req, res, next) => {
                 throw new Error(`لم يتم العثور على المنتج: ${item.prdID} (Cart item index: ${index})`);
             }
 
+            // التحقق من نطاق الشحن
+            const customerAddressType = req.body.shippingAddressType || 'nag_hamadi';
+            if (product.shippingAddress && product.shippingAddress.type === 'nag_hamadi' && customerAddressType === 'other_governorates') {
+                throw new Error(`المنتج ${product.name} متاح للشحن في نجع حمادي فقط`);
+            }
+
             let stockSource = product;
             let quantityField = 'stock';
             let price = product.price;
@@ -97,7 +103,9 @@ const createOrder = async (req, res, next) => {
                 price,
                 image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || '',
                 supplierName: product.supplierName || '',
-                supplierPrice: product.supplierPrice || 0
+                supplierPrice: product.supplierPrice || 0,
+                shippingCost: product.shippingCost || 0,
+                deliveryDays: product.deliveryDays || 2
             };
         }));
 

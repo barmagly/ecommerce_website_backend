@@ -34,6 +34,11 @@ const OrderSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    shippingAddressType: {
+        type: String,
+        enum: ['nag_hamadi', 'other_governorates'],
+        required: true
+    },
     status: {
         type: String,
         enum: ["pending", "delivered", "cancelled", "shipped", "processing"],

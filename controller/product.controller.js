@@ -282,7 +282,13 @@ exports.createProduct = catchAsync(async (req, res, next) => {
             images: productImages,
             imageCover: coverResult.url,
             supplierName: req.body.supplierName,
-            supplierPrice: req.body.supplierPrice
+            supplierPrice: req.body.supplierPrice,
+            shippingAddress: {
+                type: req.body.shippingAddressType || 'nag_hamadi',
+                details: req.body.shippingAddressDetails || ''
+            },
+            shippingCost: req.body.shippingCost || 0,
+            deliveryDays: req.body.deliveryDays || 2
         });
 
         // If variants are provided, create them
@@ -562,6 +568,20 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
             } catch (e) {
                 console.error('Error parsing product variants:', e);
             }
+        }
+
+        // Handle shipping address if provided
+        if (req.body.shippingAddressType) {
+            updateData.shippingAddress = {
+                type: req.body.shippingAddressType,
+                details: req.body.shippingAddressDetails || ''
+            };
+        }
+        if (req.body.shippingCost !== undefined) {
+            updateData.shippingCost = req.body.shippingCost;
+        }
+        if (req.body.deliveryDays !== undefined) {
+            updateData.deliveryDays = req.body.deliveryDays;
         }
 
         const updatedProduct = await Product.findByIdAndUpdate(

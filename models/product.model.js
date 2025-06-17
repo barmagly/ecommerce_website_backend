@@ -168,6 +168,33 @@ const productSchema = new mongoose.Schema({
         }]
     }],
      attributes: [attributeSchema],
+    shippingAddress: {
+        type: {
+            type: String,
+            enum: ['nag_hamadi', 'other_governorates'],
+            required: true,
+            default: 'nag_hamadi'
+        },
+        details: {
+            type: String,
+            required: function() {
+                return this.shippingAddress && this.shippingAddress.type === 'nag_hamadi';
+            },
+            trim: true
+        }
+    },
+    shippingCost: {
+        type: Number,
+        required: true,
+        min: 0,
+        default: 0
+    },
+    deliveryDays: {
+        type: Number,
+        required: true,
+        min: 1,
+        default: 2
+    }
 },
     {
         timestamps: true,
