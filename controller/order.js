@@ -49,10 +49,41 @@ const createOrder = async (req, res, next) => {
             });
         }
 
-        const orderItems = await Promise.all(cart.cartItems.map(async (item) => {
+        // Clean up invalid cart items (those with null or missing product IDs)
+        const validCartItems = cart.cartItems.filter(item => item.prdID && item.prdID._id);
+        if (validCartItems.length === 0) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'السلة تحتوي على منتجات غير صالحة فقط'
+            });
+        }
+
+        // If some items were removed, update the cart
+        if (validCartItems.length < cart.cartItems.length) {
+            cart.cartItems = validCartItems;
+            // Recalculate total
+            let newTotal = 0;
+            for (const item of validCartItems) {
+                if (item.variantId) {
+                    const variant = await ProductVariant.findById(item.variantId);
+                    newTotal += (variant ? variant.price : item.prdID.price) * item.quantity;
+                } else {
+                    newTotal += item.prdID.price * item.quantity;
+                }
+            }
+            cart.total = newTotal;
+            await cart.save();
+        }
+
+        const orderItems = await Promise.all(cart.cartItems.map(async (item, index) => {
+            // Validate that prdID exists and is not null
+            if (!item.prdID) {
+                throw new Error(`Cart item at index ${index} has no product ID`);
+            }
+
             const product = await Product.findById(item.prdID);
             if (!product) {
-                throw new Error(`لم يتم العثور على المنتج: ${item.prdID}`);
+                throw new Error(`لم يتم العثور على المنتج: ${item.prdID} (Cart item index: ${index})`);
             }
 
             let stockSource = product;
@@ -84,7 +115,9 @@ const createOrder = async (req, res, next) => {
                 quantity: item.quantity,
                 name: product.name,
                 price,
-                image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || ''
+                image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || '',
+                supplierName: product.supplierName || '',
+                supplierPrice: product.supplierPrice || 0
             };
         }));
 
@@ -184,6 +217,7 @@ const createOrder = async (req, res, next) => {
             session.endSession();
         }
     } catch (err) {
+        console.error('Order creation error:', err);
         if (!res.headersSent) {
             res.status(500).json({
                 status: 'error',

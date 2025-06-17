@@ -87,6 +87,30 @@ const productSchema = new mongoose.Schema({
             return !this.hasVariants;
         }
     },
+    supplierName: {
+        type: String,
+        required: function () {
+            return !this.hasVariants;
+        },
+        trim: true,
+        minlength: [2, 'Supplier name must be at least 2 characters']
+    },
+    supplierPrice: {
+        type: Number,
+        required: function () {
+            return !this.hasVariants;
+        },
+        min: [0, 'Supplier price cannot be negative'],
+        validate: {
+            validator: function(value) {
+                if (this.price && value >= this.price) {
+                    return false;
+                }
+                return true;
+            },
+            message: 'Supplier price must be less than the final price'
+        }
+    },
     hasVariants: {
         type: Boolean,
         default: false

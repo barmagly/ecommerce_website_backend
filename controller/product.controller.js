@@ -222,17 +222,23 @@ exports.filterProducts = catchAsync(async (req, res, next) => {
     }
 });
 
-
-
 // Create a new product with variants
 exports.createProduct = catchAsync(async (req, res, next) => {
     try {
+        // Debug logging
+        console.log('Create Product Request Body:', req.body);
+        console.log('Create Product Files:', req.files);
+        console.log('Image Cover File:', req.files?.imageCover);
+        console.log('Images Files:', req.files?.images);
+
         if (!req.files || !req.files.imageCover) {
+            console.log('Missing imageCover file');
             return next(new AppError('Image cover is required', 400));
         }
 
         // Upload cover image first
         const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
+        console.log('Cover image uploaded:', coverResult.url);
         
         // Check if SKU already exists
         if (req.body.sku) {
@@ -249,22 +255,32 @@ exports.createProduct = catchAsync(async (req, res, next) => {
         // Upload additional images if provided
         let productImages = [];
         if (req.files.images) {
+            console.log('Processing additional images:', req.files.images.length);
             for (const file of req.files.images) {
+                console.log('Uploading image:', file.originalname);
                 const result = await uploadToCloudinary(file, 'products');
                 productImages.push({
                     url: result.url,
                     alt: req.body.name || 'Product image',
                     isPrimary: productImages.length === 0 // First image is primary
                 });
+                console.log('Image uploaded:', result.url);
             }
+        } else {
+            console.log('No additional images provided');
         }
+
+        // تحويل supplierPrice إلى رقم
+        if (req.body.supplierPrice) req.body.supplierPrice = Number(req.body.supplierPrice);
 
         // Create the main product
         const product = await Product.create({
             ...req.body,
             hasVariants: false,
             images: productImages,
-            imageCover: coverResult.url
+            imageCover: coverResult.url,
+            supplierName: req.body.supplierName,
+            supplierPrice: req.body.supplierPrice
         });
 
         // If variants are provided, create them
@@ -299,6 +315,12 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
         const products = await Product.find()
             .populate('productVariants')
             // .sort('-createdAt');
+
+        console.log('Sending products to frontend:', products.map(p => ({
+            name: p.name,
+            supplierName: p.supplierName,
+            supplierPrice: p.supplierPrice
+        })));
 
         res.status(200).json({
             status: 'success',
@@ -345,6 +367,9 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
            }
        
            const updateData = { ...req.body };
+           // تحويل supplierPrice إلى رقم
+           if (updateData.supplierPrice) updateData.supplierPrice = Number(updateData.supplierPrice);
+           if (updateData.supplierName) updateData.supplierName = updateData.supplierName;
        
            // Handle cover image update if provided
            if (req.files?.imageCover) {
