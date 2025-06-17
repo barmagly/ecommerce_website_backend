@@ -5,7 +5,7 @@ const User = require('../models/user.model');
 const { Product, ProductVariant } = require('../models/product.model');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { transporter, sendMail } = require('../utils/emailConfig');
 const client = require('../utils/googleAuth');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -295,6 +295,69 @@ const updateUser = async (req, res, next) => {
         // Update user
         const user = await User.findByIdAndUpdate(
             req.user._id,
+            updateFields,
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        res.status(200).json({
+            status: 'success',
+            user
+        });
+    } catch (err) {
+        next({ message: 'Failed to update user', error: err.message });
+    }
+};
+
+// Admin function to update user by ID
+const updateUserById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { name, email, phone, password, role, status, addresses } = req.body;
+
+        // Check if user exists
+        const existingUser = await User.findById(id);
+        if (!existingUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Validate email if provided
+        if (email) {
+            const emailExists = await User.findOne({ email, _id: { $ne: id } });
+            if (emailExists) {
+                return res.status(400).json({ message: 'Email already in use' });
+            }
+        }
+
+        // Create update fields object
+        const updateFields = {};
+
+        // Only add fields that are provided
+        if (name) updateFields.name = name;
+        if (email) updateFields.email = email;
+        if (phone) updateFields.phone = phone;
+        if (role) updateFields.role = role;
+        if (status) updateFields.status = status;
+        if (addresses) {
+            // Handle addresses as array
+            const addressArray = Array.isArray(addresses) ? addresses : addresses.split(',').map(addr => addr.trim()).filter(addr => addr);
+            updateFields.addresses = addressArray;
+        }
+
+        // Handle password update if provided
+        if (password) {
+            // Validate password pattern
+            if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(password)) {
+                return res.status(400).json({
+                    message: 'Password must be at least 6 characters long and contain at least one letter and one number'
+                });
+            }
+            updateFields.password = password;
+            updateFields.passwordChangedAt = Date.now();
+        }
+
+        // Update user
+        const user = await User.findByIdAndUpdate(
+            id,
             updateFields,
             { new: true, runValidators: true }
         ).select('-password');
@@ -719,14 +782,6 @@ const removeAddress = async (req, res, next) => {
 };
 //------------------------------------------------------------
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASSWORD
-    }
-});
-
 const googleLogin = async (req, res) => {
     const { idToken } = req.body;
 
@@ -757,20 +812,22 @@ const googleLogin = async (req, res) => {
             await user.save();
             console.log(`✅ New user created: ${email}`);
 
-            const mailOptions = {
-                from: 'barmaglyy@gmail.com',
-                to: email,
-                subject: 'مرحبًا بك في منصتنا!',
-                text: `مرحبًا ${name}،\n\nشكرًا لانضمامك إلينا! نحن سعداء بانضمامك إلى منصتنا ونتمنى لك تجربة رائعة 😊`
-            };
-
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.log('Error sending email:', error);
-                } else {
-                    console.log('Welcome email sent:', info.response);
-                }
-            });
+            // إرسال إيميل الترحيب باستخدام الدالة الجديدة
+            try {
+                await sendMail(
+                    email,
+                    'مرحبًا بك في منصتنا!',
+                    `<div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+                        <h2>مرحبًا ${name}!</h2>
+                        <p>شكرًا لانضمامك إلينا! نحن سعداء بانضمامك إلى منصتنا ونتمنى لك تجربة رائعة 😊</p>
+                        <p>مع تحياتنا،<br>فريق ميزانو ❤️</p>
+                    </div>`,
+                    `مرحبًا ${name}،\n\nشكرًا لانضمامك إلينا! نحن سعداء بانضمامك إلى منصتنا ونتمنى لك تجربة رائعة 😊`
+                );
+                console.log('Welcome email sent successfully');
+            } catch (error) {
+                console.log('Error sending welcome email:', error);
+            }
         } else {
             console.log(`Existing user logged in: ${email}`);
         }
@@ -842,19 +899,28 @@ const forgotPassword = async (req, res, next) => {
         await user.save();
 
         const resetUrl = `https://ecommerce-website-cyan-pi.vercel.app/reset-password/${resetToken}`;
-        const mailOptions = {
-            from: process.env.EMAIL,
-            to: email,
-            subject: 'طلب إعادة تعيين كلمة المرور',
-            text: `لقد تلقّيت هذا البريد الإلكتروني لأنك (أو شخصًا آخر) طلبت إعادة تعيين كلمة المرور لحسابك.\n\nيرجى النقر على الرابط التالي أو نسخه ولصقه في المتصفح لإتمام العملية:\n${resetUrl}\n\nإذا لم تطلب ذلك، يمكنك تجاهل هذا البريد، وستظل كلمة المرور الخاصة بك كما هي.\n\nيرجى ملاحظة أن هذا الرابط سينتهي خلال 10 دقائق.\n\nإذا واجهت أي مشكلة أو كنت بحاجة إلى مساعدة، لا تتردد في التواصل معنا.\n\nمع تحياتنا،\nفريق برمجلي ❤️`
-        };
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log('Error sending email:', error);
-                return res.status(500).json({ message: 'Error sending reset email' });
-            }
+        
+        try {
+            await sendMail(
+                email,
+                'طلب إعادة تعيين كلمة المرور',
+                `<div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+                    <h2>طلب إعادة تعيين كلمة المرور</h2>
+                    <p>لقد تلقّيت هذا البريد الإلكتروني لأنك (أو شخصًا آخر) طلبت إعادة تعيين كلمة المرور لحسابك.</p>
+                    <p>يرجى النقر على الرابط التالي أو نسخه ولصقه في المتصفح لإتمام العملية:</p>
+                    <p><a href="${resetUrl}" style="color: #0d6efd; text-decoration: none;">${resetUrl}</a></p>
+                    <p>إذا لم تطلب ذلك، يمكنك تجاهل هذا البريد، وستظل كلمة المرور الخاصة بك كما هي.</p>
+                    <p><strong>يرجى ملاحظة أن هذا الرابط سينتهي خلال 10 دقائق.</strong></p>
+                    <p>إذا واجهت أي مشكلة أو كنت بحاجة إلى مساعدة، لا تتردد في التواصل معنا.</p>
+                    <p>مع تحياتنا،<br>فريق ميزانو ❤️</p>
+                </div>`,
+                `لقد تلقّيت هذا البريد الإلكتروني لأنك (أو شخصًا آخر) طلبت إعادة تعيين كلمة المرور لحسابك.\n\nيرجى النقر على الرابط التالي أو نسخه ولصقه في المتصفح لإتمام العملية:\n${resetUrl}\n\nإذا لم تطلب ذلك، يمكنك تجاهل هذا البريد، وستظل كلمة المرور الخاصة بك كما هي.\n\nيرجى ملاحظة أن هذا الرابط سينتهي خلال 10 دقائق.\n\nإذا واجهت أي مشكلة أو كنت بحاجة إلى مساعدة، لا تتردد في التواصل معنا.\n\nمع تحياتنا،\nفريق ميزانو ❤️`
+            );
             res.status(200).json({ message: 'Reset password email sent' });
-        });
+        } catch (error) {
+            console.log('Error sending reset email:', error);
+            return res.status(500).json({ message: 'Error sending reset email' });
+        }
     } catch (err) {
         next({ message: 'Error processing forgot password request', error: err.message });
     }
@@ -929,5 +995,6 @@ module.exports = {
     removeAddress,
     googleLogin,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    updateUserById
 };

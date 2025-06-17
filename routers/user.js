@@ -26,6 +26,7 @@ const {
     getAllUsers,
     getUserById,
     updateUser,
+    updateUserById,
     deleteUser,
     updatePassword,
     getProfile,
@@ -464,6 +465,8 @@ router.delete('/wishlist/:productId', removeFromWishlist);
 // Admin routes
 router.get('/', authorizeAdmin, getAllUsers);
 router.get('/:id', authorizeAdmin, getUserById);
+router.post('/', authorizeAdmin, register);
+router.put('/:id', authorizeAdmin, updateUserById);
 router.delete('/:id', authorizeAdmin, deleteUser);
 
 module.exports = router;

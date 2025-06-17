@@ -182,10 +182,28 @@ const dashboardModel = {
     };
   },
   async postUsers(data) {
+    // Validate password for new users
+    if (!data.password) {
+      throw new Error('Password is required for new users');
+    }
+    
+    if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(data.password)) {
+      throw new Error('Password must be at least 6 characters long and contain at least one letter and one number');
+    }
+    
     const user = await User.create(data);
     return { user, success: true };
   },
   async putUsers(id, data) {
+    // Handle password update if provided
+    if (data.password) {
+      // Validate password pattern
+      if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(data.password)) {
+        throw new Error('Password must be at least 6 characters long and contain at least one letter and one number');
+      }
+      data.passwordChangedAt = Date.now();
+    }
+    
     const user = await User.findByIdAndUpdate(id, data, { new: true }).select('-password');
     return { user, success: true };
   },

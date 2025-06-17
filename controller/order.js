@@ -4,31 +4,11 @@ const { Product, ProductVariant } = require('../models/product.model');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const multer = require('multer');
 const { default: mongoose } = require('mongoose');
+const { sendMail } = require('../utils/emailConfig');
 
 // Configure multer for file upload
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single('image');
-// utils/mailer.js
-const nodemailer = require('nodemailer');
-
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASSWORD
-    }
-});
-
-const sendMail = async (to, subject, html) => {
-    await transporter.sendMail({
-        from: `"BarmaGly" <${process.env.EMAIL}>`,
-        to,
-        subject,
-        html
-    });
-};
-
-module.exports = { sendMail };
 
 // Create order with optional image upload
 const createOrder = async (req, res, next) => {
@@ -200,7 +180,7 @@ const createOrder = async (req, res, next) => {
             
                     <hr style="margin: 30px 0;" />
             
-                    <p style="text-align: center; color: #777;">مع تحيات فريق <strong style="color: #0d6efd;">برمجلي</strong> 👨‍💻💙</p>
+                    <p style="text-align: center; color: #777;">مع تحيات فريق <strong style="color: #0d6efd;">ميزانو</strong> 👨‍💻💙</p>
                 </div>
             `;
 

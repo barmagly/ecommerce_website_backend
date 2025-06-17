@@ -23,6 +23,7 @@ exports.getNewArrivals = catchAsync(async (req, res, next) => {
 
 exports.getBestSellers = catchAsync(async (req, res, next) => {
     try {
+        const limit = Number(req.query.limit) || 20;
         const bestSellingItems = await Order.aggregate([
             { $match: { status: { $in: ['delivered', 'shipped','processing'] } } },
             { $unwind: '$cartItems' },
@@ -39,7 +40,7 @@ exports.getBestSellers = catchAsync(async (req, res, next) => {
                 }
             },
             { $sort: { totalSold: -1 } },
-            { $limit: 4 },
+            { $limit: limit },
             {
                 $lookup: {
                     from: 'products',
@@ -96,7 +97,7 @@ exports.getBestSellers = catchAsync(async (req, res, next) => {
         if (bestSellingItems.length === 0) {
             const defaultProducts = await Product.find()
                 .sort({ createdAt: -1 })
-                .limit(4)
+                .limit(limit)
                 .populate('productVariants');
                 
             return res.status(200).json({
@@ -119,6 +120,7 @@ exports.getBestSellers = catchAsync(async (req, res, next) => {
 
 exports.getMostReviewed = catchAsync(async (req, res, next) => {
     try {
+        const limit = Number(req.query.limit) || 20;
         const products = await Product.aggregate([
             {
                 $addFields: {
@@ -126,7 +128,7 @@ exports.getMostReviewed = catchAsync(async (req, res, next) => {
                 }
             },
             { $sort: { reviewCount: -1 } },
-            { $limit: 4 },
+            { $limit: limit },
             {
                 $lookup: {
                     from: 'productvariants',
@@ -313,23 +315,40 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     try {
 
         let products = await Product.find()
-            .populate('productVariants');
-            // .sort('-createdAt');
+            .populate('category')
+            .populate('productVariants')
+            .sort('-createdAt');
 
         // Ensure all required fields are present and set fallbacks
         products = products.map(p => ({
             _id: p._id,
             name: p.name || 'منتج بدون اسم',
+            description: p.description || '',
+            brand: p.brand || '',
+            category: p.category || null,
             price: p.price || 0,
-            imageCover: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image',
-            images: (p.images && p.images.length > 0) ? p.images : [{ url: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image' }],
             supplierName: p.supplierName || '',
             supplierPrice: p.supplierPrice || 0,
-            // Include any other fields you want to send
+            hasVariants: p.hasVariants || false,
+            stock: p.stock || 0,
+            sku: p.sku || '',
+            imageCover: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image',
+            images: (p.images && p.images.length > 0) ? p.images : [{ url: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image' }],
+            ratings: p.ratings || { average: 0, count: 0 },
+            features: p.features || [],
+            specifications: p.specifications || [],
+            attributes: p.attributes || [],
+            productVariants: p.productVariants || [],
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt
         }));
 
         console.log('Sending products to frontend:', products.map(p => ({
             name: p.name,
+            brand: p.brand,
+            category: p.category,
+            stock: p.stock,
+            sku: p.sku,
             supplierName: p.supplierName,
             supplierPrice: p.supplierPrice
         })));
@@ -371,50 +390,192 @@ exports.getProduct = catchAsync(async (req, res, next) => {
 // Update product
 exports.updateProduct = catchAsync(async (req, res, next) => {
     try {
+        const product = await Product.findById(req.params.id);
+        
+        if (!product) {
+            return next(new AppError('No product found with that ID', 404));
+        }
 
-       const product = await Product.findById(req.params.id);
-       
-           if (!product) {
-               return next(new AppError('No product found with that ID', 404));
-           }
-       
-           const updateData = { ...req.body };
-           // تحويل supplierPrice إلى رقم
-           if (updateData.supplierPrice) updateData.supplierPrice = Number(updateData.supplierPrice);
-           if (updateData.supplierName) updateData.supplierName = updateData.supplierName;
-       
-           // Handle cover image update if provided
-           if (req.files?.imageCover) {
-               const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
-               updateData.imageCover = coverResult.url;
-           }
-       
-           // Handle additional images update if provided
-           if (req.files?.images) {
-               const newImages = [];
-               for (const file of req.files.images) {
-                   const result = await uploadToCloudinary(file, 'products');
-                   newImages.push({
-                       url: result.url,
-                       alt: req.body.name || product.name,
-                       isPrimary: newImages.length === 0
-                   });
-               }
-               // Combine existing and new images if requested
-               updateData.images = [...(product.images || []), ...newImages];
-           }
-       
-           const updatedProduct = await Product.findByIdAndUpdate(
-               req.params.id,
-               updateData,
-               { new: true, runValidators: true }
-           );
-       
-           res.status(200).json({
-               status: 'success',
-               product: updatedProduct 
-           });
+        const updateData = { ...req.body };
+        
+        // Convert supplierPrice to number
+        if (updateData.supplierPrice) updateData.supplierPrice = Number(updateData.supplierPrice);
+        if (updateData.price) updateData.price = Number(updateData.price);
+        if (updateData.stock) updateData.stock = Number(updateData.stock);
+        
+        // Handle cover image update if provided
+        if (req.files?.imageCover) {
+            const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
+            updateData.imageCover = coverResult.url;
+        }
+
+        // Handle images update
+        if (req.files?.images || req.body.images) {
+            const newImages = [];
+            
+            // Process new uploaded files
+            if (req.files?.images) {
+                for (const file of req.files.images) {
+                    const result = await uploadToCloudinary(file, 'products');
+                    newImages.push({
+                        url: result.url,
+                        alt: req.body.name || product.name,
+                        isPrimary: newImages.length === 0
+                    });
+                }
+            }
+            
+            // Process existing image URLs from form data
+            if (req.body.images) {
+                const existingImages = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+                existingImages.forEach((imageUrl, index) => {
+                    if (typeof imageUrl === 'string' && imageUrl.trim()) {
+                        newImages.push({
+                            url: imageUrl,
+                            alt: req.body.name || product.name,
+                            isPrimary: newImages.length === 0
+                        });
+                    }
+                });
+            }
+            
+            // Handle deleted images
+            if (req.body.deletedImages) {
+                const deletedImages = JSON.parse(req.body.deletedImages);
+                // Filter out deleted images from existing images
+                const existingImages = product.images || [];
+                const remainingImages = existingImages.filter(img => 
+                    !deletedImages.includes(img.url)
+                );
+                // Combine remaining existing images with new images
+                updateData.images = [...remainingImages, ...newImages];
+            } else {
+                // If no deleted images specified, use only the new images
+                updateData.images = newImages;
+            }
+        }
+
+        // Handle features if provided
+        if (req.body.features) {
+            const features = [];
+            // Handle FormData array format: features[0][name], features[0][value], etc.
+            const featureEntries = Object.entries(req.body);
+            const featureIndices = new Set();
+            
+            featureEntries.forEach(([key, value]) => {
+                const match = key.match(/^features\[(\d+)\]\[(\w+)\]$/);
+                if (match) {
+                    const [, index, field] = match;
+                    featureIndices.add(parseInt(index));
+                }
+            });
+            
+            featureIndices.forEach(index => {
+                const name = req.body[`features[${index}][name]`];
+                const value = req.body[`features[${index}][value]`];
+                if (name && value) {
+                    features.push({ name, value });
+                }
+            });
+            
+            updateData.features = features;
+        }
+
+        // Handle specifications if provided
+        if (req.body.specifications) {
+            const specifications = [];
+            const specEntries = Object.entries(req.body);
+            const specIndices = new Set();
+            
+            // Find all specification group indices
+            specEntries.forEach(([key, value]) => {
+                const match = key.match(/^specifications\[(\d+)\]\[(\w+)\]$/);
+                if (match) {
+                    const [, index] = match;
+                    specIndices.add(parseInt(index));
+                }
+            });
+            
+            specIndices.forEach(specIndex => {
+                const group = req.body[`specifications[${specIndex}][group]`];
+                if (group) {
+                    const spec = { group, items: [] };
+                    
+                    // Find all items for this specification group
+                    const itemIndices = new Set();
+                    specEntries.forEach(([key, value]) => {
+                        const match = key.match(new RegExp(`^specifications\\[${specIndex}\\]\\[items\\]\\[(\\d+)\\]\\[(\\w+)\\]$`));
+                        if (match) {
+                            const [, itemIndex] = match;
+                            itemIndices.add(parseInt(itemIndex));
+                        }
+                    });
+                    
+                    itemIndices.forEach(itemIndex => {
+                        const name = req.body[`specifications[${specIndex}][items][${itemIndex}][name]`];
+                        const value = req.body[`specifications[${specIndex}][items][${itemIndex}][value]`];
+                        if (name && value) {
+                            spec.items.push({ name, value });
+                        }
+                    });
+                    
+                    specifications.push(spec);
+                }
+            });
+            
+            updateData.specifications = specifications;
+        }
+
+        // Handle attributes if provided
+        if (req.body.attributes) {
+            const attributes = [];
+            const attrEntries = Object.entries(req.body);
+            const attrIndices = new Set();
+            
+            attrEntries.forEach(([key, value]) => {
+                const match = key.match(/^attributes\[(\d+)\]\[(\w+)\]$/);
+                if (match) {
+                    const [, index] = match;
+                    attrIndices.add(parseInt(index));
+                }
+            });
+            
+            attrIndices.forEach(index => {
+                const name = req.body[`attributes[${index}][name]`];
+                const values = req.body[`attributes[${index}][values]`];
+                if (name && values) {
+                    attributes.push({
+                        name,
+                        values: values.split(',').map(v => v.trim()).filter(Boolean)
+                    });
+                }
+            });
+            
+            updateData.attributes = attributes;
+        }
+
+        // Handle product variants if provided
+        if (req.body.productVariants) {
+            try {
+                const variantsData = JSON.parse(req.body.productVariants);
+                updateData.productVariants = variantsData;
+            } catch (e) {
+                console.error('Error parsing product variants:', e);
+            }
+        }
+
+        const updatedProduct = await Product.findByIdAndUpdate(
+            req.params.id,
+            updateData,
+            { new: true, runValidators: true }
+        ).populate('category').populate('productVariants');
+
+        res.status(200).json({
+            status: 'success',
+            product: updatedProduct 
+        });
     } catch (error) {
+        console.error('Update product error:', error);
         res.status(500).json({
             status: 'error',
             message: 'Failed to update product',
