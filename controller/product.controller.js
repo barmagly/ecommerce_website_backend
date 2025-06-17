@@ -312,9 +312,21 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 exports.getAllProducts = catchAsync(async (req, res, next) => {
     try {
 
-        const products = await Product.find()
-            .populate('productVariants')
+        let products = await Product.find()
+            .populate('productVariants');
             // .sort('-createdAt');
+
+        // Ensure all required fields are present and set fallbacks
+        products = products.map(p => ({
+            _id: p._id,
+            name: p.name || 'منتج بدون اسم',
+            price: p.price || 0,
+            imageCover: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image',
+            images: (p.images && p.images.length > 0) ? p.images : [{ url: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image' }],
+            supplierName: p.supplierName || '',
+            supplierPrice: p.supplierPrice || 0,
+            // Include any other fields you want to send
+        }));
 
         console.log('Sending products to frontend:', products.map(p => ({
             name: p.name,
