@@ -121,6 +121,19 @@ const productSchema = new mongoose.Schema({
             return !this.hasVariants;
         }
     },
+    maxQuantityPerOrder: {
+        type: Number,
+        min: [1, 'Maximum quantity per order must be at least 1'],
+        validate: {
+            validator: function(value) {
+                if (value && this.stock && value > this.stock) {
+                    return false;
+                }
+                return true;
+            },
+            message: 'Maximum quantity per order cannot exceed available stock'
+        }
+    },
     sku: {
         type: String,
         required: function () {

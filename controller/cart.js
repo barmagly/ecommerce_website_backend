@@ -9,7 +9,7 @@ let getCurrentUserCart = async (req, res) => {
         let userCart = await CartModel.find({ userID: req.user._id }).populate({
             path: 'cartItems.prdID',
             model: 'Product',
-            select: 'images name price stock shippingCost deliveryDays shippingAddress'
+            select: 'images name price stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress'
         })
         .populate({
             path: 'cartItems.variantId',
@@ -75,6 +75,44 @@ let addTOCart = async (req, res) => {
         if (quantity < 0) {
             console.log("Validation failed: quantity is negative:", quantity);
             return res.status(400).json({ message: "Quantity cannot be negative" });
+        }
+        
+        // التحقق من الحد الأقصى للشراء
+        if (quantity > 0) {
+            const product = await Product.findById(prdID);
+            if (product && product.maxQuantityPerOrder) {
+                // البحث عن الكمية الحالية في السلة
+                let currentQuantity = 0;
+                const existingCart = await CartModel.findOne({ userID: req.user._id });
+                if (existingCart) {
+                    const existingItem = existingCart.cartItems.find(item => {
+                        if (!item.prdID || !prdID) return false;
+                        const itemPrdIDStr = item.prdID.toString();
+                        const requestPrdIDStr = prdID.toString();
+                        
+                        if (variantId) {
+                            return itemPrdIDStr === requestPrdIDStr && 
+                                   item.variantId && 
+                                   item.variantId.toString() === variantId.toString();
+                        } else {
+                            return itemPrdIDStr === requestPrdIDStr && !item.variantId;
+                        }
+                    });
+                    if (existingItem) {
+                        currentQuantity = existingItem.quantity;
+                    }
+                }
+                
+                const newTotalQuantity = currentQuantity + quantity;
+                if (newTotalQuantity > product.maxQuantityPerOrder) {
+                    return res.status(400).json({ 
+                        message: `لا يمكن شراء أكثر من ${product.maxQuantityPerOrder} قطع من هذا المنتج في الطلب الواحد`,
+                        maxQuantity: product.maxQuantityPerOrder,
+                        currentQuantity: currentQuantity,
+                        requestedQuantity: quantity
+                    });
+                }
+            }
         }
         
         let cart = await CartModel.findOne({ userID: req.user._id });
@@ -234,7 +272,7 @@ let getAllCarts = async (req, res) => {
             })
             .populate({
                 path: 'cartItems.prdID',
-                select: 'name price images stock shippingCost deliveryDays shippingAddress'
+                select: 'name price images stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress'
             })
             .populate({
                 path: 'cartItems.variantId',
@@ -263,7 +301,7 @@ let getOneCart = async (req, res) => {
             })
             .populate({
                 path: 'cartItems.prdID',
-                select: 'name price images stock shippingCost deliveryDays shippingAddress'
+                select: 'name price images stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress'
             })
             .populate({
                 path: 'cartItems.variantId',

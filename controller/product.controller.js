@@ -287,6 +287,9 @@ exports.createProduct = catchAsync(async (req, res, next) => {
         // تحويل supplierPrice إلى رقم
         if (req.body.supplierPrice) req.body.supplierPrice = Number(req.body.supplierPrice);
 
+        // تحويل maxQuantityPerOrder إلى رقم
+        if (req.body.maxQuantityPerOrder) req.body.maxQuantityPerOrder = Number(req.body.maxQuantityPerOrder);
+
         // Create the main product
         const product = await Product.create({
             ...req.body,
@@ -349,6 +352,7 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
             supplierPrice: p.supplierPrice || 0,
             hasVariants: p.hasVariants || false,
             stock: p.stock || 0,
+            maxQuantityPerOrder: p.maxQuantityPerOrder || null,
             sku: p.sku || '',
             imageCover: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image',
             images: (p.images && p.images.length > 0) ? p.images : [{ url: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image' }],
@@ -423,6 +427,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
         if (updateData.supplierPrice) updateData.supplierPrice = Number(updateData.supplierPrice);
         if (updateData.price) updateData.price = Number(updateData.price);
         if (updateData.stock) updateData.stock = Number(updateData.stock);
+        if (updateData.maxQuantityPerOrder) updateData.maxQuantityPerOrder = Number(updateData.maxQuantityPerOrder);
         
         // Handle cover image update if provided
         if (req.files?.imageCover) {
