@@ -287,8 +287,13 @@ exports.createProduct = catchAsync(async (req, res, next) => {
         // تحويل supplierPrice إلى رقم
         if (req.body.supplierPrice) req.body.supplierPrice = Number(req.body.supplierPrice);
 
-        // تحويل maxQuantityPerOrder إلى رقم
-        if (req.body.maxQuantityPerOrder) req.body.maxQuantityPerOrder = Number(req.body.maxQuantityPerOrder);
+        // تحويل maxQuantityPerOrder إلى رقم - فقط إذا كان له قيمة صحيحة
+        if (req.body.maxQuantityPerOrder && req.body.maxQuantityPerOrder !== '') {
+            req.body.maxQuantityPerOrder = Number(req.body.maxQuantityPerOrder);
+        } else {
+            // إذا كان فارغ أو غير محدد، احذفه من البيانات
+            delete req.body.maxQuantityPerOrder;
+        }
 
         // Create the main product
         const product = await Product.create({
@@ -427,8 +432,15 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
         if (updateData.supplierPrice) updateData.supplierPrice = Number(updateData.supplierPrice);
         if (updateData.price) updateData.price = Number(updateData.price);
         if (updateData.stock) updateData.stock = Number(updateData.stock);
-        if (updateData.maxQuantityPerOrder) updateData.maxQuantityPerOrder = Number(updateData.maxQuantityPerOrder);
         
+        // Handle maxQuantityPerOrder properly - only convert if it has a valid value
+        if (updateData.maxQuantityPerOrder && updateData.maxQuantityPerOrder !== '') {
+            updateData.maxQuantityPerOrder = Number(updateData.maxQuantityPerOrder);
+        } else {
+            // If empty or undefined, delete it from the update data
+            delete updateData.maxQuantityPerOrder;
+        }
+
         // Handle cover image update if provided
         if (req.files?.imageCover) {
             const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');

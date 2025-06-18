@@ -303,7 +303,7 @@ router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
  *                   example: success
  *                 message:
  *                   type: string
- *                   example: تم تحديث حالة الطلب إلى: confirmed
+ *                   example: "تم تحديث حالة الطلب إلى: confirmed"
  *                 order:
  *                   $ref: '#/components/schemas/Order'
  *       400:
@@ -318,7 +318,7 @@ router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
  *                   example: error
  *                 message:
  *                   type: string
- *                   example: يمكن تعديل الطلبات في حالة 'قيد الانتظار' فقط
+ *                   example: "يمكن تعديل الطلبات في حالة 'قيد الانتظار' فقط"
  *       401:
  *         description: Not authenticated
  *       403:

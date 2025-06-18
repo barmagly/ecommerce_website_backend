@@ -47,6 +47,8 @@ async function connectToDatabase() {
         return cachedDb;
     }
 
+    const MONGODB_URI = 'mongodb+srv://barmaglyy:Wr4sTf0EjgvwvEGn@ecommerc.orhrblw.mongodb.net/?retryWrites=true&w=majority&appName=Ecommerc';
+
     const opts = {
         // Add serverless-specific options
         bufferCommands: false,
@@ -56,7 +58,7 @@ async function connectToDatabase() {
     };
 
     try {
-        const db = await mongoose.connect(process.env.CONNECTION_STRING, opts);
+        const db = await mongoose.connect(MONGODB_URI, opts);
         cachedDb = db;
         console.log('MongoDB connection established');
         return db;
