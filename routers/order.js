@@ -9,6 +9,7 @@ const {
     getOrderById,
     getUserOrders,
     updateOrderStatus,
+    updateUserOrderStatus,
     cancelOrder
 } = require('../controller/order');
 const upload = require('../middlewares/uploadMiddleware');
@@ -22,6 +23,7 @@ router.get('/', isAuthenticated, getAllOrders);
 router.get('/:id', isAuthenticated, getOrderById);
 router.get('/user/:userId', isAuthenticated, getUserOrders);
 router.patch('/:id/status', isAuthenticated, authorizeAdmin, updateOrderStatus);
+router.put('/:id/status', isAuthenticated, updateUserOrderStatus);
 router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
 
 /**
@@ -256,6 +258,71 @@ router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
  *         description: Not authenticated
  *       403:
  *         description: Not authorized as admin
+ *       404:
+ *         description: Order not found
+ */
+
+/**
+ * @swagger
+ * /api/orders/{id}/status:
+ *   put:
+ *     summary: Update order status (User only)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [confirmed, cancelled]
+ *                 description: New order status (only confirmed or cancelled allowed for users)
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: تم تحديث حالة الطلب إلى: confirmed
+ *                 order:
+ *                   $ref: '#/components/schemas/Order'
+ *       400:
+ *         description: Bad request - Invalid status or order cannot be modified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: error
+ *                 message:
+ *                   type: string
+ *                   example: يمكن تعديل الطلبات في حالة 'قيد الانتظار' فقط
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized - Order does not belong to user
  *       404:
  *         description: Order not found
  */

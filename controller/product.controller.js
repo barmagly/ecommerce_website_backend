@@ -83,6 +83,9 @@ exports.getBestSellers = catchAsync(async (req, res, next) => {
                     },
                     totalSold: 1,
                     hasVariants: { $gt: [{ $size: { $ifNull: ['$productDetails.productVariants', []] } }, 0] },
+                    shippingCost: '$productDetails.shippingCost',
+                    deliveryDays: '$productDetails.deliveryDays',
+                    shippingAddress: '$productDetails.shippingAddress',
                     variant: {
                         $cond: {
                             if: { $gt: [{ $size: '$variantDetails' }, 0] },
@@ -98,12 +101,21 @@ exports.getBestSellers = catchAsync(async (req, res, next) => {
             const defaultProducts = await Product.find()
                 .sort({ createdAt: -1 })
                 .limit(limit)
-                .populate('productVariants');
+                .populate('productVariants')
+                .lean();
+                
+            // Ensure shipping information is included
+            const productsWithShipping = defaultProducts.map(p => ({
+                ...p,
+                shippingCost: p.shippingCost || 0,
+                deliveryDays: p.deliveryDays || 2,
+                shippingAddress: p.shippingAddress || { type: 'nag_hamadi', details: '' }
+            }));
                 
             return res.status(200).json({
                 status: 'success',
-                results: defaultProducts.length,
-                data: defaultProducts
+                results: productsWithShipping.length,
+                data: productsWithShipping
             });
         }
 
@@ -345,6 +357,9 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
             specifications: p.specifications || [],
             attributes: p.attributes || [],
             productVariants: p.productVariants || [],
+            shippingCost: p.shippingCost || 0,
+            deliveryDays: p.deliveryDays || 2,
+            shippingAddress: p.shippingAddress || { type: 'nag_hamadi', details: '' },
             createdAt: p.createdAt,
             updatedAt: p.updatedAt
         }));

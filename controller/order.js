@@ -301,6 +301,84 @@ const updateOrderStatus = async (req, res, next) => {
         });
     }
 };
+
+const updateUserOrderStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const userId = req.user.id;
+
+        // التحقق من أن الطلب موجود وينتمي للمستخدم
+        const order = await Order.findById(id);
+        if (!order) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: "الطلب غير موجود" 
+            });
+        }
+
+        // التحقق من أن الطلب ينتمي للمستخدم الحالي
+        if (order.user.toString() !== userId) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: "غير مصرح لك بتحديث هذا الطلب" 
+            });
+        }
+
+        // التحقق من أن الطلب في حالة يمكن تعديلها
+        if (order.status !== 'pending') {
+            return res.status(400).json({ 
+                status: 'error',
+                message: "يمكن تعديل الطلبات في حالة 'قيد الانتظار' فقط" 
+            });
+        }
+
+        // التحقق من الحالات المسموح بها للمستخدم
+        const allowedStatuses = ['confirmed', 'cancelled'];
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ 
+                status: 'error',
+                message: "الحالة المطلوبة غير مسموح بها" 
+            });
+        }
+
+        // تحديث حالة الطلب
+        order.status = status;
+        await order.save();
+
+        // إرجاع الطلب المحدث مع البيانات المطلوبة
+        const updatedOrder = await Order.findById(id)
+            .populate('user')
+            .populate('cartItems.product')
+            .populate('cartItems.variantId');
+
+        res.status(200).json({ 
+            status: 'success', 
+            message: `تم تحديث حالة الطلب إلى: ${status}`,
+            order: updatedOrder 
+        });
+
+        // إرسال إيميل للمستخدم
+        const statusMessages = {
+            'confirmed': 'تم تأكيد طلبك بنجاح',
+            'cancelled': 'تم إلغاء طلبك بنجاح'
+        };
+
+        await sendMail(
+            order.user.email, 
+            statusMessages[status], 
+            `تم تحديث حالة طلبك رقم ${order._id} إلى: ${status}`
+        );
+
+    } catch (err) {
+        res.status(500).json({
+            status: 'error', 
+            message: "فشل في تحديث حالة الطلب", 
+            error: err.message
+        });
+    }
+};
+
 const createOrderWithCart = async (req, res, next) => {
     try {
         const userId = req.user._id;
@@ -423,6 +501,7 @@ module.exports = {
     getOrderById,
     getUserOrders,
     updateOrderStatus,
+    updateUserOrderStatus,
     createOrder,
     createOrderWithCart,
     cancelOrder
