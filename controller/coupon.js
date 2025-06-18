@@ -124,7 +124,7 @@ const deleteCoupon = catchAsyncError(async (req, res, next) => {
 });
 
 const validateCoupon = catchAsyncError(async (req, res, next) => {
-    const { code: rawCode } = req.params; // Get raw code from params
+    const { name: rawCode } = req.params; // Get raw code from params
     if(!rawCode || typeof rawCode !== 'string') {
         return next(new ApiError('الكوبون غير صحيح', 400));
     }
