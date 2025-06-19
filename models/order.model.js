@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+// Add rounding to 2 decimal places for price fields
+function round2(val) {
+  return Math.round(Number(val) * 100) / 100;
+}
+
 const orderItemSchema = new mongoose.Schema({
     product: {
         type: mongoose.Schema.ObjectId,
@@ -16,14 +21,14 @@ const orderItemSchema = new mongoose.Schema({
         required: true,
     },
     name: String,
-    price: Number,
+    price: { type: Number, set: round2 },
     image: String,
     supplierName: String,
-    supplierPrice: Number
+    supplierPrice: { type: Number, set: round2 }
 });
 
 const OrderSchema = new mongoose.Schema({
-    total: Number,
+    total: { type: Number, set: round2 },
     cartItems: [orderItemSchema], 
     user: {
         type: mongoose.Schema.ObjectId,
@@ -70,15 +75,22 @@ const OrderSchema = new mongoose.Schema({
         enum: ["pending", "paid", "failed", "refunded"],
         default: "pending"
     },
-    shippingCost: {
-        type: Number,
-        default: 0
-    },
-    deliveryDays: {
-        type: Number,
-        default: 2
-    }
+    shippingCost: { type: Number, default: 0, set: round2 },
+    deliveryDays: { type: Number, default: 2 },
 }, { timestamps: true });
+
+// Pre-save hook to ensure all cartItems prices are rounded
+OrderSchema.pre('save', function(next) {
+  if (this.cartItems && Array.isArray(this.cartItems)) {
+    this.cartItems.forEach(item => {
+      if (item.price != null) item.price = round2(item.price);
+      if (item.supplierPrice != null) item.supplierPrice = round2(item.supplierPrice);
+    });
+  }
+  if (this.total != null) this.total = round2(this.total);
+  if (this.shippingCost != null) this.shippingCost = round2(this.shippingCost);
+  next();
+});
 
 const OrderModel = mongoose.model('order', OrderSchema);
 module.exports = OrderModel;

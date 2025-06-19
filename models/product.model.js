@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+// Add rounding to 2 decimal places for price fields
+function round2(val) {
+  return Math.round(Number(val) * 100) / 100;
+}
+
 // Product Variant Schema
 const productVariantSchema = new mongoose.Schema({
     sku: {
@@ -20,7 +25,8 @@ const productVariantSchema = new mongoose.Schema({
     price: {
         type: Number,
         required: true,
-        min: [0, 'Price cannot be negative']
+        min: [0, 'Price cannot be negative'],
+        set: round2
     },
     quantity: {
         type: Number,
@@ -85,7 +91,8 @@ const productSchema = new mongoose.Schema({
         type: Number,
         required: function () {
             return !this.hasVariants;
-        }
+        },
+        set: round2
     },
     supplierName: {
         type: String,
@@ -101,6 +108,7 @@ const productSchema = new mongoose.Schema({
             return !this.hasVariants;
         },
         min: [0, 'Supplier price cannot be negative'],
+        set: round2,
         validate: {
             validator: function(value) {
                 if (this.price && value >= this.price) {
@@ -200,7 +208,8 @@ const productSchema = new mongoose.Schema({
         type: Number,
         required: true,
         min: 0,
-        default: 0
+        default: 0,
+        set: round2
     },
     deliveryDays: {
         type: Number,
