@@ -297,7 +297,9 @@ const updateOrderStatus = async (req, res, next) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        // Start transaction for stock restoration
+        const oldStatus = order.status; // Save old status for logic
+
+        // Start transaction for stock restoration or deduction
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -315,7 +317,7 @@ const updateOrderStatus = async (req, res, next) => {
             await order.save({ session });
 
             // If order is being cancelled and was not already cancelled, restore stock
-            if (status === 'cancelled' && order.status !== 'cancelled') {
+            if (status === 'cancelled' && oldStatus !== 'cancelled') {
                 for (const item of order.cartItems) {
                     if (item.variantId) {
                         await ProductVariant.findByIdAndUpdate(
@@ -327,6 +329,25 @@ const updateOrderStatus = async (req, res, next) => {
                         await Product.findByIdAndUpdate(
                             item.product,
                             { $inc: { stock: item.quantity } },
+                            { session }
+                        );
+                    }
+                }
+            }
+
+            // NEW: If order is being re-activated from cancelled, deduct stock again
+            if (oldStatus === 'cancelled' && status !== 'cancelled') {
+                for (const item of order.cartItems) {
+                    if (item.variantId) {
+                        await ProductVariant.findByIdAndUpdate(
+                            item.variantId,
+                            { $inc: { quantity: -item.quantity } },
+                            { session }
+                        );
+                    } else if (item.product) {
+                        await Product.findByIdAndUpdate(
+                            item.product,
+                            { $inc: { stock: -item.quantity } },
                             { session }
                         );
                     }
