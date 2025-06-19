@@ -487,6 +487,10 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
                 );
                 // Combine remaining existing images with new images
                 updateData.images = [...remainingImages, ...newImages];
+                // إزالة الصور المكررة بناءً على الـ url
+                updateData.images = updateData.images.filter(
+                  (img, idx, arr) => arr.findIndex(i => i.url === img.url) === idx
+                );
             } else {
                 // If no deleted images specified, use only the new images
                 updateData.images = newImages;
