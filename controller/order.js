@@ -163,8 +163,6 @@ const createOrder = async (req, res, next) => {
                 .populate('cartItems.product')
                 .populate('cartItems.variantId');
 
-
-
             const orderRows = order.cartItems.map(item => {
                 return `
                     <tr>
@@ -229,8 +227,6 @@ const createOrder = async (req, res, next) => {
         }
     }
 };
-
-
 
 const getAllOrders = async (req, res, next) => {
     try {
@@ -459,9 +455,17 @@ const cancelOrder = async (req, res, next) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
+        // إذا كان الطلب ملغي بالفعل، اعتبر العملية ناجحة (idempotent)
+        if (order.status === 'cancelled') {
+            return res.status(200).json({ status: 'success', message: 'تم إلغاء الطلب مسبقاً', order });
+        }
+
+        // إذا لم يكن الطلب في حالة pending، أرجع رسالة واضحة
         if (order.status !== 'pending') {
             return res.status(400).json({
-                message: "Only pending orders can be cancelled"
+                status: 'error',
+                message: 'لا يمكن إلغاء هذا الطلب إلا إذا كان في حالة قيد الانتظار (pending)',
+                order
             });
         }
 
@@ -479,32 +483,32 @@ const cancelOrder = async (req, res, next) => {
 
             for (const item of order.cartItems) {
                 if (item.variantId) {
-                    // Restore quantity to variant
+                    // إذا كان هناك variantId صالح
                     await ProductVariant.findByIdAndUpdate(
                         item.variantId,
                         { $inc: { quantity: item.quantity } },
                         { session }
                     );
-                    console.log(`Restored ${item.quantity} units to variant ${item.variantId}`);
-                } else {
-                    // Restore quantity to main product
+                } else if (item.product) {
+                    // إذا كان هناك product صالح
                     await Product.findByIdAndUpdate(
                         item.product,
                         { $inc: { stock: item.quantity } },
                         { session }
                     );
-                    console.log(`Restored ${item.quantity} units to product ${item.product}`);
-                }
+                } // إذا لم يوجد product ولا variantId، تجاهل العنصر ولا ترمي خطأ
             }
 
             await session.commitTransaction();
+            session.endSession();
 
-            const populatedOrder = await order
+            // الآن يمكنك عمل populate أو إرسال إيميل بدون session
+            const populatedOrder = await Order.findById(order._id)
                 .populate('user')
                 .populate('cartItems.product')
                 .populate('cartItems.variantId');
 
-            res.status(200).json({ status: 'success', populatedOrder });
+            res.status(200).json({ status: 'success', order: populatedOrder });
             await sendMail(order.user.email, 'تم إلغاء الطلب', `تم إلغاء طلبك رقم ${order._id}.`);
 
         } catch (error) {

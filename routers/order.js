@@ -377,4 +377,7 @@ router.patch('/:id/cancel', cancelOrder);
 // Admin only route
 router.patch('/:id/status', authorizeAdmin, updateOrderStatus);
 
+// إضافة route إلغاء الطلب للمستخدم العادي
+router.patch('/orders/:id/cancel', cancelOrder);
+
 module.exports = router;
