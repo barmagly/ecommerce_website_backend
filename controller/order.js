@@ -314,27 +314,21 @@ const updateOrderStatus = async (req, res, next) => {
             }
             await order.save({ session });
 
-            // If order is being cancelled, restore stock
+            // If order is being cancelled and was not already cancelled, restore stock
             if (status === 'cancelled' && order.status !== 'cancelled') {
-                console.log('Restoring stock for cancelled order:', order._id);
-
                 for (const item of order.cartItems) {
                     if (item.variantId) {
-                        // Restore quantity to variant
                         await ProductVariant.findByIdAndUpdate(
                             item.variantId,
                             { $inc: { quantity: item.quantity } },
                             { session }
                         );
-                        console.log(`Restored ${item.quantity} units to variant ${item.variantId}`);
-                    } else {
-                        // Restore quantity to main product
+                    } else if (item.product) {
                         await Product.findByIdAndUpdate(
                             item.product,
                             { $inc: { stock: item.quantity } },
                             { session }
                         );
-                        console.log(`Restored ${item.quantity} units to product ${item.product}`);
                     }
                 }
             }
