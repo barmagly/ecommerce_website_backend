@@ -42,7 +42,7 @@ const createTransporter = () => {
 const transporter = createTransporter();
 
 // دالة لإرسال الإيميل
-const sendMail = async (to, subject, html, text = null) => {
+const sendMail = async (to, subject, html, attachments = null, text = null) => {
     try {
         const mailOptions = {
             from: `"${process.env.EMAIL_FROM_NAME || 'Mizanoo'}" <${process.env.EMAIL}>`,
@@ -51,6 +51,9 @@ const sendMail = async (to, subject, html, text = null) => {
             html,
             text
         };
+        if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+            mailOptions.attachments = attachments;
+        }
 
         const info = await transporter.sendMail(mailOptions);
         console.log('Email sent successfully:', info.messageId);

@@ -9,7 +9,7 @@ let getCurrentUserCart = async (req, res) => {
         let userCart = await CartModel.find({ userID: req.user._id }).populate({
             path: 'cartItems.prdID',
             model: 'Product',
-            select: 'images name price stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress'
+            select: 'images imageCover name price stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress'
         })
         .populate({
             path: 'cartItems.variantId',
@@ -268,7 +268,7 @@ let getAllCarts = async (req, res) => {
         const carts = await CartModel.find()
             .populate({
                 path: 'userID',
-                select: 'name email avatar'
+                select: 'name email phone avatar'
             })
             .populate({
                 path: 'cartItems.prdID',
@@ -297,7 +297,7 @@ let getOneCart = async (req, res) => {
         const cart = await CartModel.findById(id)
             .populate({
                 path: 'userID',
-                select: 'name email avatar'
+                select: 'name email phone avatar'
             })
             .populate({
                 path: 'cartItems.prdID',

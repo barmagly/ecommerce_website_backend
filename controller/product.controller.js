@@ -305,7 +305,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
             supplierPrice: req.body.supplierPrice,
             shippingAddress: {
                 type: req.body.shippingAddressType || 'nag_hamadi',
-                details: req.body.shippingAddressDetails || ''
+                details: ''
             },
             shippingCost: req.body.shippingCost || 0,
             deliveryDays: req.body.deliveryDays || 2
@@ -610,7 +610,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
         if (req.body.shippingAddressType) {
             updateData.shippingAddress = {
                 type: req.body.shippingAddressType,
-                details: req.body.shippingAddressDetails || ''
+                details: ''
             };
         }
         if (req.body.shippingCost !== undefined) {

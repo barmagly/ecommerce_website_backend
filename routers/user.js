@@ -292,7 +292,8 @@ router.put('/admin/profile/password', authorizeAdmin, updatePassword);
 
 // User-specific protected routes
 router.get('/profile', getProfile);
-router.put('/profile', upload.single('avatar'), updateUser);
+router.put('/profile', upload.single('profileImg'), updateUser);
+router.patch('/profile', upload.single('profileImg'), updateUser);
 router.put('/profile/password', updatePassword);
 
 // User routes

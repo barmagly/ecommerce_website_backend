@@ -55,6 +55,11 @@ const createOrder = async (req, res, next) => {
             await cart.save();
         }
 
+        // قبل إنشاء الطلب، عالج قيمة المدينة
+        if (!req.body.city || req.body.city.trim() === '') {
+            req.body.city = 'نجع حمادي';
+        }
+
         const orderItems = await Promise.all(cart.cartItems.map(async (item, index) => {
             // Validate that prdID exists and is not null
             if (!item.prdID) {
@@ -101,7 +106,7 @@ const createOrder = async (req, res, next) => {
                 quantity: item.quantity,
                 name: product.name,
                 price,
-                image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || '',
+                image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || product.imageCover || '',
                 supplierName: product.supplierName || '',
                 supplierPrice: product.supplierPrice || 0,
                 shippingCost: product.shippingCost || 0,
@@ -212,16 +217,19 @@ const createOrder = async (req, res, next) => {
                   <hr style="margin: 24px 0;">
                   <div style="text-align: center; color: #888;">
                     شكراً لتسوقك معنا!<br>
-                    <a href="https://localhost:3000" style="color: #1976d2;">متجرك الإلكتروني</a>
+                    <a href="https://www.mizanoo.com" style="color: #1976d2;">Mizanoo</a>
                   </div>
                 </div>
               </div>
             `;
 
-            // إرسال للعميل
-            await sendMail(order.email, 'فاتورتك من المتجر', html);
+            const attachments = [];
+            if (order.paymentMethod === 'bank_transfer' && order.image) {
+                attachments.push({ filename: 'instapay-receipt.jpg', path: order.image });
+            }
+            await sendMail(order.email, 'فاتورتك من المتجر', html, attachments);
             // إرسال للإدارة
-            await sendMail('support@mizanoo.com', 'نسخة إدارية من فاتورة الطلب', html);
+            await sendMail('support@mizanoo.com', 'نسخة إدارية من فاتورة الطلب', html, attachments);
 
             res.status(201).json({ status: 'success', order: populatedOrder });
 
@@ -609,13 +617,17 @@ const sendOrderConfirmationEmail = async (req, res) => {
           <hr style="margin: 24px 0;">
           <div style="text-align: center; color: #888;">
             شكراً لتسوقك معنا!<br>
-            <a href="https://localhost:3000" style="color: #1976d2;">متجرك الإلكتروني</a>
+            <a href="https://www.mizanoo.com/" style="color: #1976d2;">Mizanoo</a>
           </div>
         </div>
       </div>
     `;
 
-    await sendMail(email, subject, html);
+    const attachments = [];
+    if (order.paymentMethod === 'bank_transfer' && order.image) {
+        attachments.push({ filename: 'instapay-receipt.jpg', path: order.image });
+    }
+    await sendMail(email, subject, html, attachments);
     res.json({ message: 'تم إرسال الفاتورة بنجاح' });
   } catch (err) {
     console.error(err);

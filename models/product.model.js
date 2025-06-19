@@ -198,9 +198,6 @@ const productSchema = new mongoose.Schema({
         },
         details: {
             type: String,
-            required: function() {
-                return this.shippingAddress && this.shippingAddress.type === 'nag_hamadi';
-            },
             trim: true
         }
     },
