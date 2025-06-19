@@ -109,6 +109,18 @@ const createOrder = async (req, res, next) => {
             };
         }));
 
+        // Calculate maximum shipping cost and maximum delivery days
+        const maxShippingCost = Math.max(...orderItems.map(item => item.shippingCost || 0));
+        const maxDeliveryDays = Math.max(...orderItems.map(item => item.deliveryDays || 2));
+
+        // Debug logging
+        console.log('Order Items Shipping Costs:', orderItems.map(item => ({
+            name: item.name,
+            shippingCost: item.shippingCost
+        })));
+        console.log('Calculated Max Shipping Cost:', maxShippingCost);
+        console.log('Calculated Max Delivery Days:', maxDeliveryDays);
+
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -118,6 +130,8 @@ const createOrder = async (req, res, next) => {
                     user: userId,
                     cartItems: orderItems,
                     total: cart.total,
+                    shippingCost: maxShippingCost,
+                    deliveryDays: maxDeliveryDays,
                     ...req.body,
                     image: imageUrl,
                     status: 'pending'
@@ -282,18 +296,61 @@ const updateOrderStatus = async (req, res, next) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        const order = await Order.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true, runValidators: true }
-        ).populate('user').populate('items.product');
-
+        const order = await Order.findById(id);
         if (!order) {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        res.status(200).json({ status: 'success', order });
-        await sendMail(order.user.email, 'تم تحديث حالة الطلب', `تم تغيير حالة طلبك إلى: ${order.status}`);
+        // Start transaction for stock restoration
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            // Update order status
+            const updatedOrder = await Order.findByIdAndUpdate(
+                id,
+                { status },
+                { new: true, runValidators: true, session }
+            ).populate('user').populate('cartItems.product').populate('cartItems.variantId');
+
+            // If order is being cancelled, restore stock
+            if (status === 'cancelled' && order.status !== 'cancelled') {
+                console.log('Restoring stock for cancelled order:', order._id);
+                
+                for (const item of order.cartItems) {
+                    if (item.variantId) {
+                        // Restore quantity to variant
+                        await ProductVariant.findByIdAndUpdate(
+                            item.variantId,
+                            { $inc: { quantity: item.quantity } },
+                            { session }
+                        );
+                        console.log(`Restored ${item.quantity} units to variant ${item.variantId}`);
+                    } else {
+                        // Restore quantity to main product
+                        await Product.findByIdAndUpdate(
+                            item.product,
+                            { $inc: { stock: item.quantity } },
+                            { session }
+                        );
+                        console.log(`Restored ${item.quantity} units to product ${item.product}`);
+                    }
+                }
+            }
+
+            await session.commitTransaction();
+
+            res.status(200).json({ status: 'success', order: updatedOrder });
+            await sendMail(order.user.email, 'تم تحديث حالة الطلب', `تم تغيير حالة طلبك إلى: ${status}`);
+
+        } catch (error) {
+            if (session && session.inTransaction()) {
+                await session.abortTransaction();
+            }
+            throw error;
+        } finally {
+            session.endSession();
+        }
 
     } catch (err) {
         res.status(500).json({
@@ -342,33 +399,74 @@ const updateUserOrderStatus = async (req, res, next) => {
             });
         }
 
-        // تحديث حالة الطلب
-        order.status = status;
-        await order.save();
+        // Start transaction for stock restoration
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-        // إرجاع الطلب المحدث مع البيانات المطلوبة
-        const updatedOrder = await Order.findById(id)
-            .populate('user')
-            .populate('cartItems.product')
-            .populate('cartItems.variantId');
+        try {
+            // تحديث حالة الطلب
+            order.status = status;
+            await order.save({ session });
 
-        res.status(200).json({ 
-            status: 'success', 
-            message: `تم تحديث حالة الطلب إلى: ${status}`,
-            order: updatedOrder 
-        });
+            // إذا تم إلغاء الطلب، قم بإرجاع الكميات إلى المخزون
+            if (status === 'cancelled') {
+                console.log('Restoring stock for cancelled order:', order._id);
+                
+                for (const item of order.cartItems) {
+                    if (item.variantId) {
+                        // إرجاع الكمية إلى الـ variant
+                        await ProductVariant.findByIdAndUpdate(
+                            item.variantId,
+                            { $inc: { quantity: item.quantity } },
+                            { session }
+                        );
+                        console.log(`Restored ${item.quantity} units to variant ${item.variantId}`);
+                    } else {
+                        // إرجاع الكمية إلى المنتج الرئيسي
+                        await Product.findByIdAndUpdate(
+                            item.product,
+                            { $inc: { stock: item.quantity } },
+                            { session }
+                        );
+                        console.log(`Restored ${item.quantity} units to product ${item.product}`);
+                    }
+                }
+            }
 
-        // إرسال إيميل للمستخدم
-        const statusMessages = {
-            'confirmed': 'تم تأكيد طلبك بنجاح',
-            'cancelled': 'تم إلغاء طلبك بنجاح'
-        };
+            await session.commitTransaction();
 
-        await sendMail(
-            order.user.email, 
-            statusMessages[status], 
-            `تم تحديث حالة طلبك رقم ${order._id} إلى: ${status}`
-        );
+            // إرجاع الطلب المحدث مع البيانات المطلوبة
+            const updatedOrder = await Order.findById(id)
+                .populate('user')
+                .populate('cartItems.product')
+                .populate('cartItems.variantId');
+
+            res.status(200).json({ 
+                status: 'success', 
+                message: `تم تحديث حالة الطلب إلى: ${status}`,
+                order: updatedOrder 
+            });
+
+            // إرسال إيميل للمستخدم
+            const statusMessages = {
+                'confirmed': 'تم تأكيد طلبك بنجاح',
+                'cancelled': 'تم إلغاء طلبك بنجاح'
+            };
+
+            await sendMail(
+                order.user.email, 
+                statusMessages[status], 
+                `تم تحديث حالة طلبك رقم ${order._id} إلى: ${status}`
+            );
+
+        } catch (error) {
+            if (session && session.inTransaction()) {
+                await session.abortTransaction();
+            }
+            throw error;
+        } finally {
+            session.endSession();
+        }
 
     } catch (err) {
         res.status(500).json({
@@ -480,15 +578,57 @@ const cancelOrder = async (req, res, next) => {
             });
         }
 
-        order.status = 'cancelled';
-        await order.save();
+        // Start transaction for stock restoration
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-        const populatedOrder = await order
-            .populate('user')
-            .populate('items.product');
+        try {
+            // Update order status
+            order.status = 'cancelled';
+            await order.save({ session });
 
-        res.status(200).json({ status: 'success', populatedOrder });
-        await sendMail(order.user.email, 'تم إلغاء الطلب', `تم إلغاء طلبك رقم ${order._id}.`);
+            // Restore stock quantities
+            console.log('Restoring stock for cancelled order:', order._id);
+            
+            for (const item of order.cartItems) {
+                if (item.variantId) {
+                    // Restore quantity to variant
+                    await ProductVariant.findByIdAndUpdate(
+                        item.variantId,
+                        { $inc: { quantity: item.quantity } },
+                        { session }
+                    );
+                    console.log(`Restored ${item.quantity} units to variant ${item.variantId}`);
+                } else {
+                    // Restore quantity to main product
+                    await Product.findByIdAndUpdate(
+                        item.product,
+                        { $inc: { stock: item.quantity } },
+                        { session }
+                    );
+                    console.log(`Restored ${item.quantity} units to product ${item.product}`);
+                }
+            }
+
+            await session.commitTransaction();
+
+            const populatedOrder = await order
+                .populate('user')
+                .populate('cartItems.product')
+                .populate('cartItems.variantId');
+
+            res.status(200).json({ status: 'success', populatedOrder });
+            await sendMail(order.user.email, 'تم إلغاء الطلب', `تم إلغاء طلبك رقم ${order._id}.`);
+
+        } catch (error) {
+            if (session && session.inTransaction()) {
+                await session.abortTransaction();
+            }
+            throw error;
+        } finally {
+            session.endSession();
+        }
+
     } catch (err) {
         res.status(500).json({
             status: 'error', message: "Failed to cancel order", error: err.message

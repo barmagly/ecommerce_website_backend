@@ -69,6 +69,14 @@ const OrderSchema = new mongoose.Schema({
         type: String,
         enum: ["pending", "completed", "failed", "refunded"],
         default: "pending"
+    },
+    shippingCost: {
+        type: Number,
+        default: 0
+    },
+    deliveryDays: {
+        type: Number,
+        default: 2
     }
 }, { timestamps: true });
 
