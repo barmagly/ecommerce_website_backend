@@ -5,6 +5,7 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 const multer = require('multer');
 const { default: mongoose } = require('mongoose');
 const { sendMail } = require('../utils/emailConfig');
+const Offer = require('../models/offer.model');
 
 // Configure multer for file upload
 const storage = multer.memoryStorage();
@@ -79,7 +80,19 @@ const createOrder = async (req, res, next) => {
 
             let stockSource = product;
             let quantityField = 'stock';
-            let price = product.price;
+            let originalPrice = product.price;
+            let price = originalPrice;
+            let now = new Date();
+
+            // تحقق من وجود عرض على المنتج
+            let offer = await Offer.findOne({ type: 'product', refId: product._id, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
+            // إذا لم يوجد عرض على المنتج، تحقق من القسم
+            if (!offer && product.category) {
+                offer = await Offer.findOne({ type: 'category', refId: product.category, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
+            }
+            if (offer) {
+                price = Math.round(originalPrice - (originalPrice * offer.discount / 100));
+            }
 
             if (item.variantId) {
                 const variant = await ProductVariant.findById(item.variantId);
@@ -93,7 +106,8 @@ const createOrder = async (req, res, next) => {
 
                 stockSource = variant;
                 quantityField = 'quantity';
-                price = variant.price;
+                // لو فيه خصم خاص بالمتغير، طبقه هنا حسب منطقك
+                // price = variant.price;
             } else {
                 if (product.stock < item.quantity) {
                     throw new Error(`المخزون غير كافٍ للمنتج ${product.name}`);
@@ -106,6 +120,7 @@ const createOrder = async (req, res, next) => {
                 quantity: item.quantity,
                 name: product.name,
                 price,
+                originalPrice,
                 image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || product.imageCover || '',
                 supplierName: product.supplierName || '',
                 supplierPrice: product.supplierPrice || 0,

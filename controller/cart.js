@@ -1,5 +1,7 @@
 const CartModel = require("../models/cart.model");
 const { Product, ProductVariant } = require("../models/product.model");
+const Offer = require('../models/offer.model');
+const Category = require('../models/category.model');
 
 let getCurrentUserCart = async (req, res) => {
     try {
@@ -9,7 +11,7 @@ let getCurrentUserCart = async (req, res) => {
         let userCart = await CartModel.find({ userID: req.user._id }).populate({
             path: 'cartItems.prdID',
             model: 'Product',
-            select: 'images imageCover name price stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress'
+            select: 'images imageCover name price stock maxQuantityPerOrder shippingCost deliveryDays shippingAddress category'
         })
         .populate({
             path: 'cartItems.variantId',
@@ -17,8 +19,47 @@ let getCurrentUserCart = async (req, res) => {
             select: 'sku price quantity images'
         });
 
+        console.log('🛒 userCart:', JSON.stringify(userCart, null, 2));
+        // تصفية cartItems لإزالة العناصر التي ليس لها منتج
+        userCart.forEach(cart => {
+            cart.cartItems = cart.cartItems.filter(item => item.prdID);
+        });
+        // تعديل cartItems لإضافة السعر بعد الخصم والسعر الأصلي (بشكل متوازي)
+        await Promise.all(userCart.map(async (cart, cartIdx) => {
+            await Promise.all(cart.cartItems.map(async (item, itemIdx) => {
+                try {
+                    let product = item.prdID;
+                    let originalPrice = product?.price;
+                    let price = originalPrice;
+                    let now = new Date();
+                    console.log(`🔎 [cart ${cartIdx} item ${itemIdx}] productId:`, product?._id, 'category:', product?.category);
+
+                    // تحقق من وجود عرض على المنتج
+                    let offer = await Offer.findOne({ type: 'product', refId: product?._id, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
+                    console.log(`🔎 [cart ${cartIdx} item ${itemIdx}] product offer:`, offer);
+                    // إذا لم يوجد عرض على المنتج، تحقق من القسم
+                    if (!offer && product?.category) {
+                        offer = await Offer.findOne({ type: 'category', refId: product.category, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
+                        console.log(`🔎 [cart ${cartIdx} item ${itemIdx}] category offer:`, offer);
+                    }
+                    if (offer) {
+                        price = Math.round(originalPrice - (originalPrice * offer.discount / 100));
+                    }
+                    // أضف السعرين للمنتج داخل الكارت
+                    item.prdID = {
+                        ...product.toObject(),
+                        price,
+                        originalPrice
+                    };
+                } catch (err) {
+                    console.error(`❌ Error processing cart item [cart ${cartIdx} item ${itemIdx}]`, err);
+                    throw err;
+                }
+            }));
+        }));
         res.status(200).json(userCart);
     } catch (error) {
+        console.error('❌ getCurrentUserCart error:', error);
         res.status(500).json({ message: "Server error", error });
     }
 };
