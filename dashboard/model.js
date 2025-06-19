@@ -5,6 +5,7 @@ const OrderModel = require('../models/order.model');
 const ReviewModel = require('../models/review.model');
 const CouponModel = require('../models/coupon.model');
 const CartModel = require('../models/cart.model');
+const Offer = require('../models/offer.model');
 const mongoose = require('mongoose');
 
 const dashboardModel = {
@@ -16,7 +17,7 @@ const dashboardModel = {
       const collectionNames = collections.map(c => c.name);
 
       // Initialize counts with 0
-      let products = 0, categories = 0, users = 0, orders = 0, reviews = 0, coupons = 0, carts = 0, totalSales = 0;
+      let products = 0, categories = 0, users = 0, orders = 0, reviews = 0, coupons = 0, carts = 0, totalSales = 0, offers = 0;
 
       // Only query collections that exist
       const promises = [];
@@ -49,6 +50,9 @@ const dashboardModel = {
       if (collectionNames.includes('carts')) {
         promises.push(CartModel.countDocuments().then(count => carts = count));
       }
+      if (collectionNames.includes('offers')) {
+        promises.push(Offer.countDocuments().then(count => offers = count));
+      }
 
       await Promise.all(promises);
 
@@ -65,6 +69,7 @@ const dashboardModel = {
           totalCoupons: coupons,
           totalCarts: carts,
           totalSales: totalSales,
+          totalOffers: offers,
         },
         stats: {
           salesData: [],

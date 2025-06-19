@@ -3,6 +3,7 @@ const Order = require('../models/order.model');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const Offer = require('../models/offer.model');
 
 exports.getNewArrivals = catchAsync(async (req, res, next) => {
     try {
@@ -339,75 +340,65 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 // Get all products
 exports.getAllProducts = catchAsync(async (req, res, next) => {
     try {
-
-        let products = await Product.find()
-            .populate('category')
-            .populate('productVariants')
-            .sort('-createdAt');
-
-        // Ensure all required fields are present and set fallbacks
-        products = products.map(p => ({
-            _id: p._id,
-            name: p.name || 'منتج بدون اسم',
-            description: p.description || '',
-            brand: p.brand || '',
-            category: p.category || null,
-            price: p.price || 0,
-            supplierName: p.supplierName || '',
-            supplierPrice: p.supplierPrice || 0,
-            hasVariants: p.hasVariants || false,
-            stock: p.stock || 0,
-            maxQuantityPerOrder: p.maxQuantityPerOrder || null,
-            sku: p.sku || '',
-            imageCover: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image',
-            images: (p.images && p.images.length > 0) ? p.images : [{ url: p.imageCover || 'https://via.placeholder.com/300x200?text=No+Image' }],
-            ratings: p.ratings || { average: 0, count: 0 },
-            features: p.features || [],
-            specifications: p.specifications || [],
-            attributes: p.attributes || [],
-            productVariants: p.productVariants || [],
-            shippingCost: p.shippingCost || 0,
-            deliveryDays: p.deliveryDays || 2,
-            shippingAddress: p.shippingAddress || { type: 'nag_hamadi', details: '' },
-            createdAt: p.createdAt,
-            updatedAt: p.updatedAt
-        }));
-
-        console.log('Sending products to frontend:', products.map(p => ({
-            name: p.name,
-            brand: p.brand,
-            category: p.category,
-            stock: p.stock,
-            sku: p.sku,
-            supplierName: p.supplierName,
-            supplierPrice: p.supplierPrice
-        })));
-
-        res.status(200).json({
-            status: 'success',
-            results: products.length,
-            products
-        });
+        const { discounted, ...rest } = req.query;
+        let filter = { ...rest };
+        let products;
+        if (discounted === 'true') {
+            // جلب عروض المنتجات وعروض الأقسام
+            const productOffers = await Offer.find({ type: 'product' });
+            const categoryOffers = await Offer.find({ type: 'category' });
+            const productOfferMap = {};
+            productOffers.forEach(o => { productOfferMap[o.refId.toString()] = o; });
+            const categoryOfferMap = {};
+            categoryOffers.forEach(o => { categoryOfferMap[o.refId.toString()] = o; });
+            // جلب كل المنتجات
+            products = await Product.find();
+            // تصفية المنتجات التي عليها عرض مباشر أو تنتمي لقسم عليه عرض
+            products = products.filter(p => productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()]);
+            // دمج بيانات الخصم
+            products = products.map(p => {
+                const offer = productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()];
+                if (offer) {
+                    return {
+                        ...p.toObject(),
+                        originalPrice: p.price,
+                        price: Math.round(p.price * (1 - offer.discount / 100)),
+                        discount: offer.discount,
+                        offerId: offer._id,
+                        offerDescription: offer.description,
+                    };
+                }
+                return p;
+            });
+        } else {
+            products = await Product.find(filter);
+        }
+        res.json({ products });
     } catch (err) {
-        res.status(500).json({
-            status: 'error',
-            message: 'Failed to retrieve products',
-            error: err.message
-        });
+        res.status(500).json({ message: 'حدث خطأ أثناء جلب المنتجات', error: err.message });
     }
 });
 
 // Get single product
 exports.getProduct = catchAsync(async (req, res, next) => {
     try {
-
         const product = await Product.findById(req.params.id);
-
         if (!product) {
             return next(new AppError('No product found with that ID', 404));
         }
-
-        res.status(200).json(product);
+        // دمج بيانات الخصم إذا كان هناك عرض على المنتج أو القسم
+        const productOffer = await Offer.findOne({ type: 'product', refId: product._id });
+        const categoryOffer = await Offer.findOne({ type: 'category', refId: product.category });
+        let offer = productOffer || categoryOffer;
+        let productObj = product.toObject();
+        if (offer) {
+            productObj.originalPrice = product.price;
+            productObj.price = Math.round(product.price * (1 - offer.discount / 100));
+            productObj.discount = offer.discount;
+            productObj.offerId = offer._id;
+            productObj.offerDescription = offer.description;
+        }
+        res.status(200).json(productObj);
     } catch (err) {
         res.status(500).json({
             status: 'error',
@@ -519,171 +510,62 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
                     features.push({ name, value });
                 }
             });
-            
             updateData.features = features;
         }
 
-        // Handle specifications if provided
-        if (req.body.specifications) {
-            const specifications = [];
-            const specEntries = Object.entries(req.body);
-            const specIndices = new Set();
-            
-            // Find all specification group indices
-            specEntries.forEach(([key, value]) => {
-                const match = key.match(/^specifications\[(\d+)\]\[(\w+)\]$/);
-                if (match) {
-                    const [, index] = match;
-                    specIndices.add(parseInt(index));
-                }
-            });
-            
-            specIndices.forEach(specIndex => {
-                const group = req.body[`specifications[${specIndex}][group]`];
-                if (group) {
-                    const spec = { group, items: [] };
-                    
-                    // Find all items for this specification group
-                    const itemIndices = new Set();
-                    specEntries.forEach(([key, value]) => {
-                        const match = key.match(new RegExp(`^specifications\\[${specIndex}\\]\\[items\\]\\[(\\d+)\\]\\[(\\w+)\\]$`));
-                        if (match) {
-                            const [, itemIndex] = match;
-                            itemIndices.add(parseInt(itemIndex));
-                        }
-                    });
-                    
-                    itemIndices.forEach(itemIndex => {
-                        const name = req.body[`specifications[${specIndex}][items][${itemIndex}][name]`];
-                        const value = req.body[`specifications[${specIndex}][items][${itemIndex}][value]`];
-                        if (name && value) {
-                            spec.items.push({ name, value });
-                        }
-                    });
-                    
-                    specifications.push(spec);
-                }
-            });
-            
-            updateData.specifications = specifications;
-        }
-
-        // Handle attributes if provided
-        if (req.body.attributes) {
-            const attributes = [];
-            const attrEntries = Object.entries(req.body);
-            const attrIndices = new Set();
-            
-            attrEntries.forEach(([key, value]) => {
-                const match = key.match(/^attributes\[(\d+)\]\[(\w+)\]$/);
-                if (match) {
-                    const [, index] = match;
-                    attrIndices.add(parseInt(index));
-                }
-            });
-            
-            attrIndices.forEach(index => {
-                const name = req.body[`attributes[${index}][name]`];
-                const values = req.body[`attributes[${index}][values]`];
-                if (name && values) {
-                    attributes.push({
-                        name,
-                        values: values.split(',').map(v => v.trim()).filter(Boolean)
-                    });
-                }
-            });
-            
-            updateData.attributes = attributes;
-        }
-
-        // Handle product variants if provided
-        if (req.body.productVariants) {
-            try {
-                const variantsData = JSON.parse(req.body.productVariants);
-                updateData.productVariants = variantsData;
-            } catch (e) {
-                console.error('Error parsing product variants:', e);
-            }
-        }
-
-        // Handle shipping address if provided
-        if (req.body.shippingAddressType) {
-            updateData.shippingAddress = {
-                type: req.body.shippingAddressType,
-                details: ''
-            };
-        }
-        if (req.body.shippingCost !== undefined) {
-            updateData.shippingCost = req.body.shippingCost;
-        }
-        if (req.body.deliveryDays !== undefined) {
-            updateData.deliveryDays = req.body.deliveryDays;
-        }
-
-        const updatedProduct = await Product.findByIdAndUpdate(
-            req.params.id,
-            updateData,
-            { new: true, runValidators: true }
-        ).populate('category').populate('productVariants');
-
+        // Update the product
+        const updatedProduct = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
         res.status(200).json({
             status: 'success',
-            product: updatedProduct 
+            product: updatedProduct
         });
-    } catch (error) {
-        console.error('Update product error:', error);
+    } catch (err) {
         res.status(500).json({
             status: 'error',
             message: 'Failed to update product',
-            error: error.message
+            error: err.message
         });
     }
 });
 
-// Delete product
+// Get products by category
+exports.getCategoryProducts = catchAsync(async (req, res, next) => {
+    try {
+        const categoryId = req.params.id;
+        const products = await Product.find({ category: categoryId });
+        res.status(200).json({
+            status: 'success',
+            results: products.length,
+            products
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to get products by category',
+            error: err.message
+        });
+    }
+});
+
+// Delete a product by ID
 exports.deleteProduct = catchAsync(async (req, res, next) => {
     try {
-        const product = await Product.findById(req.params.id);
+        const product = await Product.findByIdAndDelete(req.params.id);
         if (!product) {
-            return next(new AppError('No product found with that ID', 404));
+            return res.status(404).json({
+                status: 'error',
+                message: 'No product found with that ID'
+            });
         }
-
-        // Delete all related variants first
-        await ProductVariant.deleteMany({ product: req.params.id });
-
-        // Delete the product itself
-        await Product.findByIdAndDelete(req.params.id);
-
-        // Return 204 No Content for successful deletion
-        res.status(204).send();
-    } catch (error) {
-        console.error('Delete product error:', error);
+        res.status(204).json({
+            status: 'success',
+            data: null
+        });
+    } catch (err) {
         res.status(500).json({
             status: 'error',
             message: 'Failed to delete product',
-            error: error.message
+            error: err.message
         });
     }
 });
-
-exports.getCategoryProducts = catchAsync(async(req,res,next)=>{
-    try {
-        
-        const products = await Product.find({category:req.params.id})
-        // console.log(products);
-        if(!products)
-        {
-            return next(new AppError('no products for this category'))
-        }
-
-        res.status(200).json(
-            products
-        )
-    } catch (error) {
-         res.status(500).json({
-            status: 'error',
-            message: 'Failed to get the products of the category',
-            error: error.message
-        });
-    }
-})

@@ -15,6 +15,7 @@ const couponRouter = require('./routers/coupon');
 const userRouter = require('./routers/user');
 const dashboardRouter = require('./dashboard/index');
 const settingsRouter = require('./routers/settings');
+const offerRoutes = require('./routers/offer.routes');
 
 const app = express();
 console.log(process.env.PORT);
@@ -107,6 +108,7 @@ const startServer = async () => {
         app.use('/api/coupons', couponRouter);
         app.use('/api/dashboard', dashboardRouter);
         app.use('/api/settings', settingsRouter);
+        app.use('/api/offers', offerRoutes);
 
         // Admin login route (direct)
         app.post('/api/admin/login', (req, res) => {
