@@ -23,6 +23,7 @@ router.get('/:id', isAuthenticated, getOrderById);
 router.get('/user/:userId', isAuthenticated, getUserOrders);
 router.patch('/status/:id', isAuthenticated, authorizeAdmin, updateOrderStatus);
 router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
+router.patch('/:id', isAuthenticated, updateOrderStatus);
 
 /**
  * @swagger
