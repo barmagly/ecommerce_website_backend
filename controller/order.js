@@ -294,7 +294,7 @@ const getUserOrders = async (req, res, next) => {
 const updateOrderStatus = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, paymentStatus } = req.body;
 
         const order = await Order.findById(id);
         if (!order) {
@@ -307,16 +307,21 @@ const updateOrderStatus = async (req, res, next) => {
 
         try {
             // Update order status
-            const updatedOrder = await Order.findByIdAndUpdate(
-                id,
-                { status },
-                { new: true, runValidators: true, session }
-            ).populate('user').populate('cartItems.product').populate('cartItems.variantId');
+            order.status = status || order.status; // Update status if provided
+            order.paymentStatus = paymentStatus || order.paymentStatus; // Update payment method if provided
+            if (status === 'delivered') {
+                order.isDelivered = true;
+                order.deliveredAt = Date.now();
+            } else if (status === 'cancelled') {
+                order.isDelivered = false;
+                order.deliveredAt = null; // Reset deliveredAt if cancelled
+            }
+            await order.save({ session });
 
             // If order is being cancelled, restore stock
             if (status === 'cancelled' && order.status !== 'cancelled') {
                 console.log('Restoring stock for cancelled order:', order._id);
-                
+
                 for (const item of order.cartItems) {
                     if (item.variantId) {
                         // Restore quantity to variant
@@ -340,8 +345,8 @@ const updateOrderStatus = async (req, res, next) => {
 
             await session.commitTransaction();
 
-            res.status(200).json({ status: 'success', order: updatedOrder });
-            await sendMail(order.user.email, 'تم تحديث حالة الطلب', `تم تغيير حالة طلبك إلى: ${status}`);
+            await sendMail(order.email, 'تم تحديث حالة الطلب', `تم تحديث حالة طلبك رقم ${order._id} إلى: ${status}`);
+            res.status(200).json({ status: 'success', order });
 
         } catch (error) {
             if (session && session.inTransaction()) {
@@ -359,123 +364,6 @@ const updateOrderStatus = async (req, res, next) => {
     }
 };
 
-const updateUserOrderStatus = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-        const userId = req.user.id;
-
-        // التحقق من أن الطلب موجود وينتمي للمستخدم
-        const order = await Order.findById(id);
-        if (!order) {
-            return res.status(404).json({ 
-                status: 'error',
-                message: "الطلب غير موجود" 
-            });
-        }
-
-        // التحقق من أن الطلب ينتمي للمستخدم الحالي
-        if (order.user.toString() !== userId) {
-            return res.status(403).json({ 
-                status: 'error',
-                message: "غير مصرح لك بتحديث هذا الطلب" 
-            });
-        }
-
-        // التحقق من أن الطلب في حالة يمكن تعديلها
-        if (order.status !== 'pending') {
-            return res.status(400).json({ 
-                status: 'error',
-                message: "يمكن تعديل الطلبات في حالة 'قيد الانتظار' فقط" 
-            });
-        }
-
-        // التحقق من الحالات المسموح بها للمستخدم
-        const allowedStatuses = ['confirmed', 'cancelled'];
-        if (!allowedStatuses.includes(status)) {
-            return res.status(400).json({ 
-                status: 'error',
-                message: "الحالة المطلوبة غير مسموح بها" 
-            });
-        }
-
-        // Start transaction for stock restoration
-        const session = await mongoose.startSession();
-        session.startTransaction();
-
-        try {
-            // تحديث حالة الطلب
-            order.status = status;
-            await order.save({ session });
-
-            // إذا تم إلغاء الطلب، قم بإرجاع الكميات إلى المخزون
-            if (status === 'cancelled') {
-                console.log('Restoring stock for cancelled order:', order._id);
-                
-                for (const item of order.cartItems) {
-                    if (item.variantId) {
-                        // إرجاع الكمية إلى الـ variant
-                        await ProductVariant.findByIdAndUpdate(
-                            item.variantId,
-                            { $inc: { quantity: item.quantity } },
-                            { session }
-                        );
-                        console.log(`Restored ${item.quantity} units to variant ${item.variantId}`);
-                    } else {
-                        // إرجاع الكمية إلى المنتج الرئيسي
-                        await Product.findByIdAndUpdate(
-                            item.product,
-                            { $inc: { stock: item.quantity } },
-                            { session }
-                        );
-                        console.log(`Restored ${item.quantity} units to product ${item.product}`);
-                    }
-                }
-            }
-
-            await session.commitTransaction();
-
-            // إرجاع الطلب المحدث مع البيانات المطلوبة
-            const updatedOrder = await Order.findById(id)
-                .populate('user')
-                .populate('cartItems.product')
-                .populate('cartItems.variantId');
-
-            res.status(200).json({ 
-                status: 'success', 
-                message: `تم تحديث حالة الطلب إلى: ${status}`,
-                order: updatedOrder 
-            });
-
-            // إرسال إيميل للمستخدم
-            const statusMessages = {
-                'confirmed': 'تم تأكيد طلبك بنجاح',
-                'cancelled': 'تم إلغاء طلبك بنجاح'
-            };
-
-            await sendMail(
-                order.user.email, 
-                statusMessages[status], 
-                `تم تحديث حالة طلبك رقم ${order._id} إلى: ${status}`
-            );
-
-        } catch (error) {
-            if (session && session.inTransaction()) {
-                await session.abortTransaction();
-            }
-            throw error;
-        } finally {
-            session.endSession();
-        }
-
-    } catch (err) {
-        res.status(500).json({
-            status: 'error', 
-            message: "فشل في تحديث حالة الطلب", 
-            error: err.message
-        });
-    }
-};
 
 const createOrderWithCart = async (req, res, next) => {
     try {
@@ -589,7 +477,7 @@ const cancelOrder = async (req, res, next) => {
 
             // Restore stock quantities
             console.log('Restoring stock for cancelled order:', order._id);
-            
+
             for (const item of order.cartItems) {
                 if (item.variantId) {
                     // Restore quantity to variant
@@ -641,7 +529,7 @@ module.exports = {
     getOrderById,
     getUserOrders,
     updateOrderStatus,
-    updateUserOrderStatus,
+    // updateUserOrderStatus,
     createOrder,
     createOrderWithCart,
     cancelOrder

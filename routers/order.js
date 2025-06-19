@@ -22,8 +22,8 @@ router.post('/', isAuthenticated, createOrderWithCart);
 router.get('/', isAuthenticated, getAllOrders);
 router.get('/:id', isAuthenticated, getOrderById);
 router.get('/user/:userId', isAuthenticated, getUserOrders);
-router.patch('/:id/status', isAuthenticated, authorizeAdmin, updateOrderStatus);
-router.put('/:id/status', isAuthenticated, updateUserOrderStatus);
+router.patch('/status/:id', isAuthenticated, authorizeAdmin, updateOrderStatus);
+// router.put('/:id/status', isAuthenticated, updateUserOrderStatus);
 router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
 
 /**
