@@ -9,9 +9,11 @@ const {
     getOrderById,
     getUserOrders,
     updateOrderStatus,
-    cancelOrder
+    cancelOrder,
+    sendOrderConfirmationEmail
 } = require('../controller/order');
 const upload = require('../middlewares/uploadMiddleware');
+const PDFDocument = require('pdfkit');
 
 // Order routes with file upload support
 // Create order with image upload
@@ -24,6 +26,47 @@ router.get('/user/:userId', isAuthenticated, getUserOrders);
 router.patch('/status/:id', isAuthenticated, authorizeAdmin, updateOrderStatus);
 router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
 router.patch('/:id', isAuthenticated, updateOrderStatus);
+router.post('/:id/send-confirmation-email', isAuthenticated, sendOrderConfirmationEmail);
+
+// PDF Invoice endpoint
+router.get('/:id/invoice-pdf', isAuthenticated, async (req, res) => {
+  try {
+    const Order = require('../models/order.model');
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).send('Order not found');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=invoice-${order._id}.pdf`);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    doc.pipe(res);
+
+    doc.fontSize(20).text('فاتورة الطلب', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(14).text(`رقم الطلب: ${order._id}`);
+    doc.text(`تاريخ الطلب: ${order.createdAt ? order.createdAt.toLocaleDateString('ar-EG') : ''}`);
+    doc.text(`اسم العميل: ${order.name || ''}`);
+    doc.text(`البريد الإلكتروني: ${order.email || ''}`);
+    doc.text(`رقم الهاتف: ${order.phone || ''}`);
+    doc.text(`العنوان: ${order.address || ''}`);
+    doc.text(`المدينة: ${order.city || ''}`);
+    doc.moveDown();
+
+    doc.fontSize(16).text('المنتجات:', { underline: true });
+    (order.cartItems || []).forEach((item, idx) => {
+      doc.fontSize(12).text(
+        `${idx + 1}. ${item.name} - الكمية: ${item.quantity} - السعر: ${item.price} - الإجمالي: ${item.price * item.quantity}`
+      );
+    });
+
+    doc.moveDown();
+    doc.fontSize(14).text(`الإجمالي: ${order.total} جنيه`);
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('خطأ في توليد الفاتورة');
+  }
+});
 
 /**
  * @swagger

@@ -29,6 +29,7 @@
     "mongoose-paginate-v2": "^1.9.1",
     "multer": "^2.0.0",
     "nodemailer": "^6.10.1",
+    "pdfkit": "^0.17.1",
     "process": "^0.11.10",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"

@@ -177,35 +177,52 @@ const createOrder = async (req, res, next) => {
                 `;
             }).join('');
 
-            const htmlContent = `
-                <div style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
-                    <h2 style="color: #333;">تفاصيل الطلب رقم: ${order._id}</h2>
-                    <p>شكراً لك على طلبك من متجرنا!</p>
-            
-                    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; text-align: center;">
-                        <thead style="background-color: #f2f2f2;">
-                            <tr>
-                                <th>المنتج</th>
-                                <th>الكمية</th>
-                                <th>السعر الفردي</th>
-                                <th>الإجمالي</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${orderRows}
-                        </tbody>
-                    </table>
-            
-                    <p style="margin-top: 15px;"><strong>الإجمالي الكلي:</strong> ${order.total} ج.م</p>
-            
-                    <hr style="margin: 30px 0;" />
-            
-                    <p style="text-align: center; color: #777;">مع تحيات فريق <strong style="color: #0d6efd;">ميزانو</strong> 👨‍💻💙</p>
+            const logoUrl = 'https://res.cloudinary.com/disjyrtjb/image/upload/v1750329594/logo_thob50.png';
+            const html = `
+              <div style="font-family: Cairo, Arial, sans-serif; direction: rtl; background: #f9f9f9; padding: 24px;">
+                <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 32px;">
+                  <div style="text-align: center; margin-bottom: 24px;">
+                    <img src='${logoUrl}' alt='Logo' style='max-width: 180px; margin-bottom: 8px;' />
+                  </div>
+                  <h2 style="color: #1976d2; text-align: center;">فاتورة طلبك</h2>
+                  <hr style="margin: 16px 0;">
+                  <div style="margin-bottom: 16px;">
+                    <b>رقم الطلب:</b> ${order._id}<br>
+                    <b>اسم العميل:</b> ${order.name}<br>
+                    <b>البريد الإلكتروني:</b> ${order.email}<br>
+                    <b>رقم الهاتف:</b> ${order.phone}<br>
+                    <b>العنوان:</b> ${order.address}<br>
+                    <b>المدينة:</b> ${order.city}<br>
+                    <b>تاريخ الطلب:</b> ${order.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : ''}
+                  </div>
+                  <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                    <thead>
+                      <tr style="background: #f2f2f2;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">المنتج</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">الكمية</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">السعر</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">الإجمالي</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${orderRows}
+                    </tbody>
+                  </table>
+                  <h3 style="text-align: left; color: #388e3c;">الإجمالي: ${order.total} ج.م</h3>
+                  <hr style="margin: 24px 0;">
+                  <div style="text-align: center; color: #888;">
+                    شكراً لتسوقك معنا!<br>
+                    <a href="https://localhost:3000" style="color: #1976d2;">متجرك الإلكتروني</a>
+                  </div>
                 </div>
+              </div>
             `;
 
-            await sendMail(req.user.email, 'تم إنشاء طلبك بنجاح', htmlContent);
-            // Send response once all operations succeed
+            // إرسال للعميل
+            await sendMail(order.email, 'فاتورتك من المتجر', html);
+            // إرسال للإدارة
+            await sendMail('support@mizanoo.com', 'نسخة إدارية من فاتورة الطلب', html);
+
             res.status(201).json({ status: 'success', order: populatedOrder });
 
         } catch (error) {
@@ -542,6 +559,70 @@ const cancelOrder = async (req, res, next) => {
     }
 };
 
+// إرسال فاتورة الطلب عبر البريد
+const sendOrderConfirmationEmail = async (req, res) => {
+  try {
+    const Order = require('../models/order.model');
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const { email, isAdminCopy } = req.body;
+    const subject = isAdminCopy ? 'نسخة إدارية من فاتورة الطلب' : 'فاتورتك من المتجر';
+    const html = `
+      <div style="font-family: Cairo, Arial, sans-serif; direction: rtl; background: #f9f9f9; padding: 24px;">
+        <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 32px;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <img src='https://res.cloudinary.com/disjyrtjb/image/upload/v1750329594/logo_thob50.png' alt='Logo' style='max-width: 180px; margin-bottom: 8px;' />
+          </div>
+          <h2 style="color: #1976d2; text-align: center;">فاتورة طلبك</h2>
+          <hr style="margin: 16px 0;">
+          <div style="margin-bottom: 16px;">
+            <b>رقم الطلب:</b> ${order._id}<br>
+            <b>اسم العميل:</b> ${order.name}<br>
+            <b>البريد الإلكتروني:</b> ${order.email}<br>
+            <b>رقم الهاتف:</b> ${order.phone}<br>
+            <b>العنوان:</b> ${order.address}<br>
+            <b>المدينة:</b> ${order.city}<br>
+            <b>تاريخ الطلب:</b> ${order.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : ''}
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            <thead>
+              <tr style="background: #f2f2f2;">
+                <th style="padding: 8px; border: 1px solid #ddd;">المنتج</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">الكمية</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">السعر</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.cartItems.map(item => `
+                <tr>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${item.name}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${item.quantity}</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${item.price} ج.م</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${item.price * item.quantity} ج.م</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <h3 style="text-align: left; color: #388e3c;">الإجمالي: ${order.total} ج.م</h3>
+          <hr style="margin: 24px 0;">
+          <div style="text-align: center; color: #888;">
+            شكراً لتسوقك معنا!<br>
+            <a href="https://localhost:3000" style="color: #1976d2;">متجرك الإلكتروني</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    await sendMail(email, subject, html);
+    res.json({ message: 'تم إرسال الفاتورة بنجاح' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'فشل في إرسال البريد الإلكتروني' });
+  }
+};
+
 module.exports = {
     getAllOrders,
     getOrderById,
@@ -549,5 +630,6 @@ module.exports = {
     updateOrderStatus,
     createOrder,
     createOrderWithCart,
-    cancelOrder
+    cancelOrder,
+    sendOrderConfirmationEmail
 }
