@@ -9,7 +9,6 @@ const {
     getOrderById,
     getUserOrders,
     updateOrderStatus,
-    updateUserOrderStatus,
     cancelOrder
 } = require('../controller/order');
 const upload = require('../middlewares/uploadMiddleware');
@@ -23,7 +22,6 @@ router.get('/', isAuthenticated, getAllOrders);
 router.get('/:id', isAuthenticated, getOrderById);
 router.get('/user/:userId', isAuthenticated, getUserOrders);
 router.patch('/status/:id', isAuthenticated, authorizeAdmin, updateOrderStatus);
-// router.put('/:id/status', isAuthenticated, updateUserOrderStatus);
 router.delete('/:id', isAuthenticated, authorizeAdmin, cancelOrder);
 
 /**

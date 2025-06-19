@@ -364,7 +364,6 @@ const updateOrderStatus = async (req, res, next) => {
     }
 };
 
-
 const createOrderWithCart = async (req, res, next) => {
     try {
         const userId = req.user._id;
@@ -529,7 +528,6 @@ module.exports = {
     getOrderById,
     getUserOrders,
     updateOrderStatus,
-    // updateUserOrderStatus,
     createOrder,
     createOrderWithCart,
     cancelOrder
