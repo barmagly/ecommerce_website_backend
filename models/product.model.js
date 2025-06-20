@@ -80,7 +80,7 @@ const productSchema = new mongoose.Schema({
     },
     brand: {
         type: String,
-        required: [true, 'Brand is required']
+        // required: [true, 'Brand is required']
     },
     category: {
         type: mongoose.Schema.ObjectId,
