@@ -352,7 +352,7 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
             const categoryOfferMap = {};
             categoryOffers.forEach(o => { categoryOfferMap[o.refId.toString()] = o; });
             // جلب كل المنتجات
-            products = await Product.find();
+            products = await Product.find().populate('category productVariants');
             // تصفية المنتجات التي عليها عرض مباشر أو تنتمي لقسم عليه عرض
             products = products.filter(p => productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()]);
             // دمج بيانات الخصم
@@ -371,7 +371,7 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
                 return p;
             });
         } else {
-            products = await Product.find(filter);
+            products = await Product.find(filter).populate('category productVariants');
         }
         res.json({ products });
     } catch (err) {
