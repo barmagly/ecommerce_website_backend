@@ -419,30 +419,32 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
 
         const updateData = { ...req.body };
         
-        // Convert supplierPrice to number
         if (updateData.supplierPrice) updateData.supplierPrice = Number(updateData.supplierPrice);
         if (updateData.price) updateData.price = Number(updateData.price);
         if (updateData.stock) updateData.stock = Number(updateData.stock);
-        
-        // Handle maxQuantityPerOrder properly - only convert if it has a valid value
+        if (updateData.shippingAddress) {
+            console.log(updateData.shippingAddress);
+            if (typeof updateData.shippingAddress === 'string') {
+                try {
+                    updateData.shippingAddress = JSON.parse(updateData.shippingAddress);
+                } catch (e) {
+                    updateData.shippingAddress = { type: updateData.shippingAddress };
+                }
+            }
+        }
         if (updateData.maxQuantityPerOrder && updateData.maxQuantityPerOrder !== '') {
             updateData.maxQuantityPerOrder = Number(updateData.maxQuantityPerOrder);
         } else {
-            // If empty or undefined, delete it from the update data
             delete updateData.maxQuantityPerOrder;
         }
 
-        // Handle cover image update if provided
         if (req.files?.imageCover) {
             const coverResult = await uploadToCloudinary(req.files.imageCover[0], 'products/covers');
             updateData.imageCover = coverResult.url;
         }
-
-        // Handle images update
         if (req.files?.images || req.body.images) {
             const newImages = [];
             
-            // Process new uploaded files
             if (req.files?.images) {
                 for (const file of req.files.images) {
                     const result = await uploadToCloudinary(file, 'products');
@@ -454,7 +456,6 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
                 }
             }
             
-            // Process existing image URLs from form data
             if (req.body.images) {
                 const existingImages = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
                 existingImages.forEach((imageUrl, index) => {
