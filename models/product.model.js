@@ -194,7 +194,7 @@ const productSchema = new mongoose.Schema({
             type: String,
             enum: ['nag_hamadi', 'other_governorates'],
             required: true,
-            default: 'nag_hamadi'
+            default: 'other_governorates'
         },
         details: {
             type: String,

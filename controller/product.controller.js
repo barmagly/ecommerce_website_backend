@@ -305,7 +305,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
             supplierName: req.body.supplierName,
             supplierPrice: req.body.supplierPrice,
             shippingAddress: {
-                type: req.body.shippingAddressType || 'nag_hamadi',
+                type: req.body.shippingAddress || 'other_governorates',
                 details: ''
             },
             shippingCost: req.body.shippingCost || 0,
