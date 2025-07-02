@@ -211,7 +211,7 @@ const productSchema = new mongoose.Schema({
     deliveryDays: {
         type: Number,
         required: true,
-        min: 1,
+        min: 0,
         default: 2
     }
 },
