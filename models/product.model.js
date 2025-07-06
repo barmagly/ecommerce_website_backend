@@ -111,12 +111,12 @@ const productSchema = new mongoose.Schema({
         set: round2,
         validate: {
             validator: function(value) {
-                if (this.price && value >= this.price) {
+                if (this.price && value > this.price) {
                     return false;
                 }
                 return true;
             },
-            message: 'Supplier price must be less than the final price'
+            message: 'Supplier price must be less than or equal to the final price'
         }
     },
     hasVariants: {

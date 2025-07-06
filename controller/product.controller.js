@@ -340,40 +340,75 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 // Get all products
 exports.getAllProducts = catchAsync(async (req, res, next) => {
     try {
-        const { discounted, ...rest } = req.query;
-        let filter = { ...rest };
-        let products;
+        // Extract pagination params and discounted flag
+        const { discounted } = req.query;
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 20;
+        const skip = (page - 1) * limit;
+
+        // Build filter object excluding non-filter query params
+        const filter = { ...req.query };
+        delete filter.discounted;
+        delete filter.page;
+        delete filter.limit;
+
+        let products = [];
+        let totalItems = 0;
+
         if (discounted === 'true') {
             // جلب عروض المنتجات وعروض الأقسام
-            const productOffers = await Offer.find({ type: 'product' });
-            const categoryOffers = await Offer.find({ type: 'category' });
+            const [productOffers, categoryOffers] = await Promise.all([
+                Offer.find({ type: 'product' }),
+                Offer.find({ type: 'category' })
+            ]);
+
             const productOfferMap = {};
             productOffers.forEach(o => { productOfferMap[o.refId.toString()] = o; });
+
             const categoryOfferMap = {};
             categoryOffers.forEach(o => { categoryOfferMap[o.refId.toString()] = o; });
-            // جلب كل المنتجات
-            products = await Product.find().populate('category productVariants');
-            // تصفية المنتجات التي عليها عرض مباشر أو تنتمي لقسم عليه عرض
-            products = products.filter(p => productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()]);
-            // دمج بيانات الخصم
-            products = products.map(p => {
-                const offer = productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()];
-                if (offer) {
-                    return {
-                        ...p.toObject(),
-                        originalPrice: p.price,
-                        price: Math.round(p.price * (1 - offer.discount / 100)),
-                        discount: offer.discount,
-                        offerId: offer._id,
-                        offerDescription: offer.description,
-                    };
-                }
-                return p;
-            });
+
+            // جلب كل المنتجات (يمكن تحسين الأداء لاحقًا)
+            const allProducts = await Product.find().populate('category productVariants');
+            const discountedProducts = allProducts.filter(p => productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()]);
+
+            totalItems = discountedProducts.length;
+
+            products = discountedProducts
+                .slice(skip, skip + limit)
+                .map(p => {
+                    const offer = productOfferMap[p._id.toString()] || categoryOfferMap[p.category.toString()];
+                    if (offer) {
+                        return {
+                            ...p.toObject(),
+                            originalPrice: p.price,
+                            price: Math.round(p.price * (1 - offer.discount / 100)),
+                            discount: offer.discount,
+                            offerId: offer._id,
+                            offerDescription: offer.description,
+                        };
+                    }
+                    return p;
+                });
         } else {
-            products = await Product.find(filter).populate('category productVariants');
+            // Count total documents first for pagination metadata
+            totalItems = await Product.countDocuments(filter);
+            products = await Product.find(filter)
+                .skip(skip)
+                .limit(limit)
+                .populate('category productVariants');
         }
-        res.json({ products });
+
+        const totalPages = Math.ceil(totalItems / limit) || 1;
+
+        res.json({
+            results: products.length,
+            page,
+            limit,
+            totalPages,
+            totalItems,
+            products
+        });
     } catch (err) {
         res.status(500).json({ message: 'حدث خطأ أثناء جلب المنتجات', error: err.message });
     }
