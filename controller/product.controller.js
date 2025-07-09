@@ -230,7 +230,8 @@ exports.filterProducts = catchAsync(async (req, res, next) => {
             results: products.length,
             page,
             totalPages: Math.ceil(totalProducts / limit),
-            data: products
+            data: products,
+            totalItems: totalProducts
         });
     } catch (error) {
         next(new AppError(error.message, 500));
