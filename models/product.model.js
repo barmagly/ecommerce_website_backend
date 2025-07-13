@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Add rounding to 2 decimal places for price fields
 function round2(val) {
   return Math.round(Number(val) * 100) / 100;
 }
@@ -19,7 +18,7 @@ const productVariantSchema = new mongoose.Schema({
     },
     attributes: {   
         type: Map,
-        of: String, // Using Map to store dynamic attributes
+        of: String, 
         required: true      
     },
     price: {
@@ -51,9 +50,7 @@ const productVariantSchema = new mongoose.Schema({
     }]
 }, { timestamps: true });
 
-// Pre-save middleware for variant
 productVariantSchema.pre('save', function (next) {
-    // Update inStock based on quantity
     this.inStock = this.quantity > 0;
     next();
 });
@@ -221,13 +218,10 @@ const productSchema = new mongoose.Schema({
         toObject: { virtuals: true }
     });
 
-// Update inStock when quantity changes
 productSchema.pre('save', function (next) {
     this.inStock = this.quantity > 0;
     next();
 });
-
-// Ensure primary image is unique
 productSchema.pre('save', function (next) {
     const primaryImages = this.images.filter(img => img.isPrimary);
     if (primaryImages.length > 1) {
@@ -241,14 +235,12 @@ productSchema.pre('save', function (next) {
     next();
 });
 
-// Virtual populate variants
 productSchema.virtual('productVariants', {
     ref: 'ProductVariant',
     foreignField: 'product',
     localField: '_id'
 });
 
-// Pre-save middleware to generate slug and update inStock
 productSchema.pre('save', function (next) {
     if (this.title) {
         this.slug = this.title.toLowerCase().replace(/ /g, '-');
@@ -256,7 +248,7 @@ productSchema.pre('save', function (next) {
     next();
 });
 
-// Create models
+
 const Product = mongoose.model('Product', productSchema);
 const ProductVariant = mongoose.model('ProductVariant', productVariantSchema);
 

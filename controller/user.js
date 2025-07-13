@@ -8,9 +8,8 @@ const crypto = require('crypto');
 const { transporter, sendMail } = require('../utils/emailConfig');
 const client = require('../utils/googleAuth');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Generate JWT Token
 const generateToken = (id) => {
     return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
 };
@@ -19,7 +18,6 @@ const register = async (req, res, next) => {
     try {
         const { name, email, password, phone, addresses, address } = req.body;
 
-        // Validate required fields with specific messages
         if (!name) {
             return res.status(400).json({
                 message: 'Name is required',
@@ -44,8 +42,6 @@ const register = async (req, res, next) => {
                 field: 'phone'
             });
         }
-
-        // Validate email format
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({
@@ -54,15 +50,12 @@ const register = async (req, res, next) => {
             });
         }
 
-        // Validate password
         if (password.length < 6) {
             return res.status(400).json({
                 message: 'Password must be at least 6 characters long',
                 field: 'password'
             });
         }
-
-        // Validate password format
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({
@@ -70,8 +63,6 @@ const register = async (req, res, next) => {
                 field: 'password'
             });
         }
-
-        // Validate phone format
         const phoneRegex = /^[0-9]{10,15}$/;
         if (!phoneRegex.test(phone)) {
             return res.status(400).json({
@@ -79,8 +70,6 @@ const register = async (req, res, next) => {
                 field: 'phone'
             });
         }
-
-        // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({
@@ -88,8 +77,6 @@ const register = async (req, res, next) => {
                 field: 'email'
             });
         }
-
-        // Create new user
         const user = await User.create({
             name,
             email,
@@ -101,7 +88,6 @@ const register = async (req, res, next) => {
 
         const token = generateToken(user._id);
 
-        // Return user data and token in the same format as login
         const userData = {
             _id: user._id,
             name: user.name,
@@ -141,11 +127,9 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     try {
-        // Accept both username and email fields
         const { email, username, password } = req.body;
         const loginEmail = email || username;
 
-        // Validate input
         if (!loginEmail || !password) {
             return res.status(400).json({
                 message: 'Email and password are required',
@@ -153,7 +137,6 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Find user and explicitly select password field
         const user = await User.findOne({ email: loginEmail }).select('+password');
         if (!user) {
             return res.status(401).json({
@@ -162,7 +145,6 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Check if user is active
         if (!user.active) {
             return res.status(401).json({
                 message: 'Account is deactivated. Please contact support.',
@@ -170,7 +152,6 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({
@@ -179,7 +160,7 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Generate token
+        
         const token = generateToken(user._id);
         if (!token) {
             return res.status(500).json({
@@ -187,7 +168,6 @@ const login = async (req, res, next) => {
             });
         }
 
-        // Return user data and token in the format expected by frontend
         const userData = {
             _id: user._id,
             name: user.name,
@@ -196,12 +176,9 @@ const login = async (req, res, next) => {
             phone: user.phone
         };
 
-        // For admin users, include additional data
         if (user.role === 'admin') {
             userData.isAdmin = true;
         }
-
-        // Send response in the exact format expected by frontend
         res.status(200).json({
             status: 'success',
             data: {
@@ -272,17 +249,14 @@ const getProfile = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
     try {
-        // Get form data from request body
         const { name, email, phone, addresses } = req.body;
         let profileImgUrl = null;
 
-        // Handle profile image upload if provided
         if (req.file) {
             const uploadResult = await uploadToCloudinary(req.file, 'users/profiles/' + req.user._id);
             profileImgUrl = uploadResult.url;
         }
 
-        // Validate email if provided
         if (email) {
             const existingUser = await User.findOne({ email, _id: { $ne: req.user._id } });
             if (existingUser) {
@@ -290,17 +264,14 @@ const updateUser = async (req, res, next) => {
             }
         }
 
-        // Create update fields object
         const updateFields = {};
 
-        // Only add fields that are provided
         if (name) updateFields.name = name;
         if (email) updateFields.email = email;
         if (phone) updateFields.phone = phone;
         if (addresses) updateFields.addresses = addresses;
         if (profileImgUrl) updateFields.profileImg = profileImgUrl;
 
-        // Update user
         const user = await User.findByIdAndUpdate(
             req.user._id,
             updateFields,
@@ -316,19 +287,16 @@ const updateUser = async (req, res, next) => {
     }
 };
 
-// Admin function to update user by ID
 const updateUserById = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { name, email, phone, password, role, status, addresses } = req.body;
 
-        // Check if user exists
         const existingUser = await User.findById(id);
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Validate email if provided
         if (email) {
             const emailExists = await User.findOne({ email, _id: { $ne: id } });
             if (emailExists) {
@@ -336,24 +304,18 @@ const updateUserById = async (req, res, next) => {
             }
         }
 
-        // Create update fields object
         const updateFields = {};
 
-        // Only add fields that are provided
         if (name) updateFields.name = name;
         if (email) updateFields.email = email;
         if (phone) updateFields.phone = phone;
         if (role) updateFields.role = role;
         if (status) updateFields.status = status;
         if (addresses) {
-            // Handle addresses as array
             const addressArray = Array.isArray(addresses) ? addresses : addresses.split(',').map(addr => addr.trim()).filter(addr => addr);
             updateFields.addresses = addressArray;
         }
-
-        // Handle password update if provided
         if (password) {
-            // Validate password pattern
             if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(password)) {
                 return res.status(400).json({
                     message: 'Password must be at least 6 characters long and contain at least one letter and one number'
@@ -363,7 +325,6 @@ const updateUserById = async (req, res, next) => {
             updateFields.passwordChangedAt = Date.now();
         }
 
-        // Update user
         const user = await User.findByIdAndUpdate(
             id,
             updateFields,
@@ -383,7 +344,6 @@ const updatePassword = async (req, res, next) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
-        // Validate new password pattern before anything
         if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/.test(newPassword)) {
             return res.status(400).json({
                 message: 'Password must be at least 6 characters long and contain at least one letter and one number'
@@ -400,7 +360,7 @@ const updatePassword = async (req, res, next) => {
             return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
-        user.password = newPassword; // will be hashed automatically in pre-save
+        user.password = newPassword;
         user.passwordChangedAt = Date.now();
 
         await user.save();
@@ -434,7 +394,6 @@ const deleteUser = async (req, res, next) => {
     }
 };
 
-// Add new address to address book
 const addAddressToBook = async (req, res, next) => {
     try {
         const { label, details, city } = req.body;
@@ -468,7 +427,6 @@ const addAddressToBook = async (req, res, next) => {
     }
 };
 
-// Update existing address in address book
 const updateAddressInBook = async (req, res, next) => {
     try {
         const { addressId } = req.params;
@@ -504,7 +462,6 @@ const updateAddressInBook = async (req, res, next) => {
     }
 };
 
-// Delete address from address book
 const deleteAddressFromBook = async (req, res, next) => {
     try {
         const { addressId } = req.params;
@@ -534,7 +491,6 @@ const deleteAddressFromBook = async (req, res, next) => {
     }
 };
 
-// Get all addresses from address book
 const getAddressBook = async (req, res, next) => {
     try {
         const user = await User.findById(req.user._id);
@@ -553,7 +509,6 @@ const getAddressBook = async (req, res, next) => {
     }
 };
 
-// Get all payment options
 const getPaymentOptions = async (req, res, next) => {
     try {
         const user = await User.findById(req.user._id);
@@ -572,7 +527,6 @@ const getPaymentOptions = async (req, res, next) => {
     }
 };
 
-// Add new payment option
 const addPaymentOption = async (req, res, next) => {
     try {
         const { cardType, cardNumber, cardholderName } = req.body;
@@ -606,7 +560,6 @@ const addPaymentOption = async (req, res, next) => {
     }
 };
 
-// Update existing payment option
 const updatePaymentOption = async (req, res, next) => {
     try {
         const { paymentOptionId } = req.params;
@@ -642,7 +595,6 @@ const updatePaymentOption = async (req, res, next) => {
     }
 };
 
-// Delete payment option
 const deletePaymentOption = async (req, res, next) => {
     try {
         const { paymentOptionId } = req.params;
@@ -788,6 +740,7 @@ const removeAddress = async (req, res, next) => {
         next({ message: 'Failed to remove address', error: err.message });
     }
 };
+
 //------------------------------------------------------------
 
 const googleLogin = async (req, res) => {
@@ -820,7 +773,6 @@ const googleLogin = async (req, res) => {
             await user.save();
             console.log(`✅ New user created: ${email}`);
 
-            // إرسال إيميل الترحيب باستخدام الدالة الجديدة
             try {
                 await sendMail(
                     email,
@@ -837,7 +789,6 @@ const googleLogin = async (req, res) => {
                 console.log('Error sending welcome email:', error);
             }
         } else {
-            // Check if existing user is active
             if (!user.active) {
                 return res.status(401).json({
                     status: 'error',
@@ -849,7 +800,6 @@ const googleLogin = async (req, res) => {
 
         const token = generateToken(user._id);
 
-        // Return user data and token in the same format as login
         const userData = {
             _id: user._id,
             name: user.name,
@@ -874,7 +824,7 @@ const googleLogin = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Token verification failed:', error);
+        console.error(' Token verification failed:', error);
         res.status(401).json({ success: false, message: 'Invalid ID Token' });
     }
 };
@@ -897,7 +847,6 @@ const forgotPassword = async (req, res, next) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Check if user is a Google user
         if (user.isGoogleUser) {
             return res.status(400).json({
                 message: 'Google users cannot reset their password. Please use Google to sign in.'
@@ -946,7 +895,6 @@ const resetPassword = async (req, res, next) => {
         const { token } = req.params;
         const { password } = req.body;
 
-        // Find user with matching reset token
         const user = await User.findOne({
             resetPasswordToken: token,
             resetPasswordExpires: { $gt: Date.now() }

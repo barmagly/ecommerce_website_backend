@@ -40,13 +40,10 @@ const createCoupon = catchAsyncError(async (req, res, next) => {
         applyTo
     } = req.body;
 
-    // Check if coupon code already exists
     const existingCoupon = await Coupon.findOne({ code });
     if (existingCoupon) {
         return next(new ApiError("هذا الكوبون موجود بالفعل", 400));
     }
-
-    // Validate applyTo and related fields
     if (applyTo === 'categories' && (!categories || categories.length === 0)) {
         return next(new ApiError("يجب اختيار الفئات عند تطبيق الكوبون على فئات محددة", 400));
     }
@@ -58,11 +55,11 @@ const createCoupon = catchAsyncError(async (req, res, next) => {
     const coupon = await Coupon.create({
         code,
         name,
-        expire: expire === '' ? null : expire, // Set to null if empty string
+        expire: expire === '' ? null : expire, 
         discount,
         type,
         minAmount,
-        maxDiscount, // No longer needs conditional handling, it's optional in model
+        maxDiscount, 
         usageLimit,
         isActive,
         startDate,
@@ -85,7 +82,6 @@ const updateCoupon = catchAsyncError(async (req, res, next) => {
         return next(new ApiError("الكوبون غير موجود", 404));
     }
 
-    // Validate applyTo and related fields
     if (req.body.applyTo === 'categories' && (!req.body.categories || req.body.categories.length === 0)) {
         return next(new ApiError("يجب اختيار الفئات عند تطبيق الكوبون على فئات محددة", 400));
     }
@@ -95,12 +91,9 @@ const updateCoupon = catchAsyncError(async (req, res, next) => {
     }
 
     let updateBody = { ...req.body };
-    // Handle expire: set to null if it's an empty string
     if (updateBody.expire === '') {
         updateBody.expire = null;
     }
-    // maxDiscount no longer needs conditional handling, it's optional in model
-    // Remove: if (updateBody.type === 'percentage' && updateBody.maxDiscount === '') { updateBody.maxDiscount = undefined; }
 
     const updatedCoupon = await Coupon.findByIdAndUpdate(
         id,
@@ -124,13 +117,13 @@ const deleteCoupon = catchAsyncError(async (req, res, next) => {
 });
 
 const validateCoupon = catchAsyncError(async (req, res, next) => {
-    const { name: rawCode } = req.params; // Get raw code from params
+    const { name: rawCode } = req.params; 
     if(!rawCode || typeof rawCode !== 'string') {
         return next(new ApiError('الكوبون غير صحيح', 400));
     }
-    const code = req.params.name.toUpperCase(); // Trim and convert to uppercase
-    const { productId } = req.query; // Optional: for product-specific validation
-    const userId = req.user ? req.user._id : null; // Safely get userId
+    const code = req.params.name.toUpperCase(); 
+    const { productId } = req.query; 
+    const userId = req.user ? req.user._id : null;
 
     const coupon = await Coupon.findOne({ code });
 
@@ -138,38 +131,26 @@ const validateCoupon = catchAsyncError(async (req, res, next) => {
         return next(new ApiError('الكوبون غير موجود', 404));
     }
 
-    // Check if coupon is active
     if (!coupon.isActive) {
         return next(new ApiError('الكوبون غير نشط', 400));
     }
-
-    // Check if coupon has expired
     if (new Date() > coupon.expire) {
         return next(new ApiError('الكوبون منتهي الصلاحية', 400));
     }
-
-    // Check if coupon has started
     if (new Date() < coupon.startDate) {
         return next(new ApiError('الكوبون لم يبدأ بعد', 400));
     }
-
-    // Check usage limit
     if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
         return next(new ApiError('لقد تم استخدام هذا الكوبون بالكامل', 400));
     }
 
-    // Check if user has already used this coupon (only if userId is available)
     if (userId && coupon.usedBy.includes(userId)) {
         return next(new ApiError('لقد قمت باستخدام هذا الكوبون من قبل', 400));
     }
+    coupon.usedCount += 1;
+    coupon.usedBy.push(userId);
+    await coupon.save();
 
-    // Placeholder for when the coupon is successfully applied in an order
-    // In a real scenario, after a successful order, you would update:
-    // coupon.usedCount += 1;
-    // coupon.usedBy.push(userId);
-    // await coupon.save();
-
-    // Product-specific validation (if productId is provided)
     if (productId) {
         const product = await Product.findById(productId);
         if (!product) {

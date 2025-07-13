@@ -1,0 +1,17 @@
+{
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/controllers": true,
+      "**/dashboard": true,
+      "**/scripts": true,
+      "**/src": true,
+      "**/validators": true,
+      "**/routers/settings.js": true,
+      "**/models/settings.js": true,
+      // "**/models/offer.model.js":true,
+      // "**/controllers/offer.controller.js":true,
+      // "**/routers/offer.routes.js":true,
+      
+    }
+  }
+  

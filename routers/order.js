@@ -405,22 +405,17 @@ router.get('/:id/invoice-pdf', isAuthenticated, async (req, res) => {
  *         description: Order cannot be cancelled
  */
 
-// All order routes require authentication
 router.use(isAuthenticated);
 
-// Admin routes
 router.get('/', authorizeAdmin, getAllOrders);
 
-// User routes
 router.get('/:id', getOrderById);
 router.get('/user/:userId', getUserOrders);
 router.post('/', createOrder);
 router.patch('/:id/cancel', cancelOrder);
 
-// Admin only route
 router.patch('/:id/status', authorizeAdmin, updateOrderStatus);
 
-// إضافة route إلغاء الطلب للمستخدم العادي
 router.patch('/orders/:id/cancel', cancelOrder);
 
 module.exports = router;

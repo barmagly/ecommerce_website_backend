@@ -249,12 +249,10 @@ const {
  *         description: Coupon not found
  */
 
-// Public routes
 router.get('/validate/:name', validateCoupon);
-
-// Admin routes (requires both authentication and admin role)
+//
 router.use(isAuthenticated, authorizeAdmin);
-
+//
 router.get('/', getAllCoupons);
 router.get('/:id', getCouponById);
 router.post('/', createCoupon);

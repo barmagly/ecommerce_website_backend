@@ -60,7 +60,6 @@ const createReview = async (req, res, next) => {
             });
         }
 
-        // Validate rating
         if (rating < 0 || rating > 5) {
             console.log('Invalid rating:', rating);
             return res.status(400).json({
@@ -69,7 +68,6 @@ const createReview = async (req, res, next) => {
             });
         }
         
-        // Check if user has already reviewed this product
         const existingReview = await Review.findOne({
             user,
             product: productId
@@ -103,11 +101,9 @@ const createReview = async (req, res, next) => {
 
         console.log('Review created:', review);
 
-        // Update product ratings
         const productReviews = await Review.find({ product: productId });
         const ratingsCount = productReviews.length;
         
-        // Calculate distribution
         const distribution = {
             1: 0,
             2: 0,
@@ -169,7 +165,6 @@ const updateReview = async (req, res, next) => {
             return res.status(404).json({ message: "Review not found" });
         }
 
-        // Validate rating
         if (rating < 0 || rating > 5) {
             return res.status(400).json({
                 message: "Rating must be between 0 and 5"
@@ -183,11 +178,9 @@ const updateReview = async (req, res, next) => {
         ).populate('user')
          .populate('product');
 
-        // Update product ratings
         const productReviews = await Review.find({ product: updatedReview.product });
         const ratingsCount = productReviews.length;
         
-        // Calculate distribution
         const distribution = {
             1: 0,
             2: 0,
@@ -239,12 +232,9 @@ const deleteReview = async (req, res, next) => {
             });
         }
 
-        // First check if review exists
-        console.log('Finding review...');
         let review;
         try {
             review = await Review.findById(id).populate('user product');
-            console.log('Found review:', review ? 'yes' : 'no');
             if (review) {
                 console.log('Review details:', {
                     id: review._id,
@@ -270,9 +260,7 @@ const deleteReview = async (req, res, next) => {
             });
         }
 
-        // Then check if user owns the review or is an admin
         if (!req.user) {
-            console.log('No authenticated user found');
             return res.status(401).json({
                 status: 'error',
                 message: "Authentication required"
@@ -283,8 +271,6 @@ const deleteReview = async (req, res, next) => {
         console.log('Review userId:', review.user?._id);
         console.log('Current user ID:', req.user._id);
         console.log('User role:', req.user.role);
-
-        // Check if the review belongs to the user or if user is admin
         const isOwner = review.user?._id.toString() === req.user._id.toString();
         const isAdmin = req.user.role === 'admin';
 
@@ -296,12 +282,8 @@ const deleteReview = async (req, res, next) => {
             });
         }
 
-        // Store productId before deletion
         const productId = review.product?._id;
         console.log('Product ID for rating update:', productId);
-
-        // Delete the review first
-        console.log('Deleting review...');
         let deletedReview;
         try {
             deletedReview = await Review.findOneAndDelete({ _id: id });
@@ -323,7 +305,6 @@ const deleteReview = async (req, res, next) => {
             });
         }
 
-        // Only update product ratings if we have a valid product ID
         if (productId) {
             console.log('Updating product ratings...');
             let productReviews;
@@ -332,13 +313,11 @@ const deleteReview = async (req, res, next) => {
                 console.log('Found product reviews:', productReviews.length);
             } catch (findReviewsError) {
                 console.error('Error finding product reviews:', findReviewsError);
-                // Continue with empty reviews array
                 productReviews = [];
             }
 
             const ratingsCount = productReviews.length;
             
-            // Calculate distribution
             const distribution = {
                 1: 0,
                 2: 0,
@@ -370,10 +349,8 @@ const deleteReview = async (req, res, next) => {
                     },
                     { new: true }
                 );
-                console.log('Product update result:', updatedProduct ? 'success' : 'failed');
             } catch (productError) {
                 console.error('Error updating product ratings:', productError);
-                // Don't fail the whole operation if product update fails
             }
         } else {
             console.log('Skipping product rating update - no valid product ID');
@@ -400,13 +377,11 @@ const checkPurchase = async (req, res, next) => {
         const userId = req.user._id;
         const { productId } = req.params;
 
-        // Verify product exists
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ message: "Product not found" });
         }
 
-        // Check if user has purchased this product
         const order = await Order.findOne({
             user: userId,
             'cartItems.product': productId,

@@ -3,7 +3,6 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
-// Add variant to product
 exports.addVariant = catchAsync(async (req, res, next) => {
     try {
 
@@ -20,19 +19,17 @@ exports.addVariant = catchAsync(async (req, res, next) => {
                 message: 'Variant with this SKU already exists'
             });
         }
-        // Upload images if provided
         let variantImages = [];
 
         if (req.files) {
 
-            // Handle product variant images
             if (req.files.images) {
                 for (const file of req.files.images) {
                     const result = await uploadToCloudinary(file, 'variants');
                     variantImages.push({
                         url: result.url,
                         alt: req.body.sku,
-                        isPrimary: variantImages.length === 0 // First image is primary
+                        isPrimary: variantImages.length === 0 
                     });
                 }
             }
@@ -61,7 +58,6 @@ exports.addVariant = catchAsync(async (req, res, next) => {
     }
 });
 
-// Get all variants of a product
 exports.getVariants = catchAsync(async (req, res, next) => {
     try {
 
@@ -83,7 +79,6 @@ exports.getVariants = catchAsync(async (req, res, next) => {
     }
 });
 
-// Update variant
 exports.updateVariant = catchAsync(async (req, res, next) => {
     try {
 
@@ -97,17 +92,7 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
         }
 
         const updateData = { ...req.body };
-        // const variantt = await ProductVariant.findOne({ sku: req.body.sku });
-        // if (variantt) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         status: 'error',
-        //         message: 'Variant with this SKU already exists'
-        //     });
-        // }
-        // Handle color image update if provided
-
-        // Handle variant images update if provided
+       
         if (req.files?.images) {
             const newImages = [];
             for (const file of req.files.images) {
@@ -118,7 +103,6 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
                     isPrimary: newImages.length === 0
                 });
             }
-            // Combine existing and new images if requested
             updateData.images = [...(variant.images || []), ...newImages]
         }
 
@@ -141,7 +125,6 @@ exports.updateVariant = catchAsync(async (req, res, next) => {
     }
 });
 
-// Delete variant
 exports.deleteVariant = catchAsync(async (req, res, next) => {
     try {
 
@@ -167,11 +150,9 @@ exports.deleteVariant = catchAsync(async (req, res, next) => {
     }
 });
 
-// Update variant stock
 exports.updateStock = catchAsync(async (req, res, next) => {
     try {
         
-        // const{quantity} = req.body;
         console.log(req.body);
 
         if (typeof req.body.quantity !== 'number' || req.body.quantity < 0) {

@@ -278,20 +278,15 @@ const {
  *         description: Review not found
  */
 
-// Public routes
 router.get('/', getAllReviews);
 router.get('/product/:productId', getProductReviews);
 router.get('/check-purchase/:productId', isAuthenticated, checkPurchase);
 router.get('/:reviewId', getReviewById);
 
-// Authenticated routes
 router.post('/', isAuthenticated, createReview);
 router.patch('/:id', isAuthenticated, updateReview);
 router.delete('/:id', isAuthenticated, deleteReview);
 
-// Check purchase route
-
-// Add new route for updating review status
 router.patch('/:id/status', isAuthenticated, updateReviewStatus);
 
 module.exports = router;

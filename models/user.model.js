@@ -45,15 +45,10 @@ const userSchema = new mongoose.Schema(
             minlength: [6, 'Password must be at least 6 characters long'],
             validate: {
                 validator: function (v) {
-                    // Skip validation if this is a token operation
                     if (this.resetPasswordToken) {
                         return true;
                     }
-                    
-                    // If password is empty, it's valid (for updates)
                     if (!v) return true;
-                    
-                    // Just check minimum length
                     return v.length >= 6;
                 },
                 message: 'Password must be at least 6 characters long'

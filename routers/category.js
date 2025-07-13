@@ -189,11 +189,10 @@ const upload = require('../middlewares/uploadMiddleware');
  *         description: Category not found
  */
 
-// Public routes
+
 router.get('/', getAllCategories);
 router.get('/:id', getCategoryById);
 
-// Admin only routes
 router.post('/', isAuthenticated, authorizeAdmin, upload.fields([
     { name: 'image', maxCount: 1 }
 ]), (req, res, next) => {

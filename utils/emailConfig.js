@@ -1,11 +1,10 @@
 const nodemailer = require('nodemailer');
 
-// إعدادات SMTP لـ Hostinger
 const createHostingerTransporter = () => {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.hostinger.com',
         port: process.env.SMTP_PORT || 587,
-        secure: false, // true for 465, false for other ports
+        secure: false, 
         auth: {
             user: process.env.EMAIL,
             pass: process.env.PASSWORD
@@ -16,7 +15,6 @@ const createHostingerTransporter = () => {
     });
 };
 
-// إعدادات SMTP لـ Gmail (للتوافق مع الإعدادات القديمة)
 const createGmailTransporter = () => {
     return nodemailer.createTransport({
         service: 'gmail',
@@ -27,7 +25,6 @@ const createGmailTransporter = () => {
     });
 };
 
-// إنشاء transporter بناءً على نوع الخدمة
 const createTransporter = () => {
     const emailService = process.env.EMAIL_SERVICE || 'hostinger';
     
@@ -38,10 +35,8 @@ const createTransporter = () => {
     }
 };
 
-// إنشاء transporter افتراضي
 const transporter = createTransporter();
 
-// دالة لإرسال الإيميل
 const sendMail = async (to, subject, html, attachments = null, text = null) => {
     try {
         const mailOptions = {

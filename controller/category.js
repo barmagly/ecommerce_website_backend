@@ -72,14 +72,12 @@ const updateCategory = async (req, res, next) => {
             });
         }
 
-        // If there's a new image, upload it to Cloudinary
         if (req.files?.categoryImage?.[0]) {
             const { categoryImage } = req.files;
             const image = await uploadToCloudinary(categoryImage[0], 'categories');
             req.body.image = image.url;
         }
 
-        // Update the category
         const updatedCategory = await Category.findByIdAndUpdate(
             id, 
             req.body, 

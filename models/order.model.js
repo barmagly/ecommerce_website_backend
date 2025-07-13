@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Add rounding to 2 decimal places for price fields
 function round2(val) {
   return Math.round(Number(val) * 100) / 100;
 }
@@ -79,7 +78,6 @@ const OrderSchema = new mongoose.Schema({
     deliveryDays: { type: Number, default: 2 },
 }, { timestamps: true });
 
-// Pre-save hook to ensure all cartItems prices are rounded
 OrderSchema.pre('save', function(next) {
   if (this.cartItems && Array.isArray(this.cartItems)) {
     this.cartItems.forEach(item => {

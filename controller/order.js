@@ -7,11 +7,9 @@ const { default: mongoose } = require('mongoose');
 const { sendMail } = require('../utils/emailConfig');
 const Offer = require('../models/offer.model');
 
-// Configure multer for file upload
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage }).single('image');
 
-// Create order with optional image upload
 const createOrder = async (req, res, next) => {
     try {
         let imageUrl = '';
@@ -30,7 +28,6 @@ const createOrder = async (req, res, next) => {
             });
         }
 
-        // Clean up invalid cart items (those with null or missing product IDs)
         const validCartItems = cart.cartItems.filter(item => item.prdID && item.prdID._id);
         if (validCartItems.length === 0) {
             return res.status(400).json({
@@ -39,10 +36,8 @@ const createOrder = async (req, res, next) => {
             });
         }
 
-        // If some items were removed, update the cart
         if (validCartItems.length < cart.cartItems.length) {
             cart.cartItems = validCartItems;
-            // Recalculate total
             let newTotal = 0;
             for (const item of validCartItems) {
                 if (item.variantId) {
@@ -56,13 +51,11 @@ const createOrder = async (req, res, next) => {
             await cart.save();
         }
 
-        // قبل إنشاء الطلب، عالج قيمة المدينة
         if (!req.body.city || req.body.city.trim() === '') {
             req.body.city = 'نجع حمادي';
         }
 
         const orderItems = await Promise.all(cart.cartItems.map(async (item, index) => {
-            // Validate that prdID exists and is not null
             if (!item.prdID) {
                 throw new Error(`Cart item at index ${index} has no product ID`);
             }
@@ -72,7 +65,6 @@ const createOrder = async (req, res, next) => {
                 throw new Error(`لم يتم العثور على المنتج: ${item.prdID} (Cart item index: ${index})`);
             }
 
-            // التحقق من نطاق الشحن
             const customerAddressType = req.body.shippingAddressType || 'nag_hamadi';
             if (product.shippingAddress && product.shippingAddress.type === 'nag_hamadi' && customerAddressType === 'other_governorates') {
                 throw new Error(`المنتج ${product.name} متاح للشحن في نجع حمادي فقط`);
@@ -84,9 +76,7 @@ const createOrder = async (req, res, next) => {
             let price = originalPrice;
             let now = new Date();
 
-            // تحقق من وجود عرض على المنتج
             let offer = await Offer.findOne({ type: 'product', refId: product._id, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
-            // إذا لم يوجد عرض على المنتج، تحقق من القسم
             if (!offer && product.category) {
                 offer = await Offer.findOne({ type: 'category', refId: product.category, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
             }
@@ -106,8 +96,7 @@ const createOrder = async (req, res, next) => {
 
                 stockSource = variant;
                 quantityField = 'quantity';
-                // لو فيه خصم خاص بالمتغير، طبقه هنا حسب منطقك
-                // price = variant.price;
+                price = variant.price;
             } else {
                 if (product.stock < item.quantity) {
                     throw new Error(`المخزون غير كافٍ للمنتج ${product.name}`);
@@ -129,11 +118,9 @@ const createOrder = async (req, res, next) => {
             };
         }));
 
-        // Calculate maximum shipping cost and maximum delivery days
         const maxShippingCost = Math.max(...orderItems.map(item => item.shippingCost || 0));
         const maxDeliveryDays = Math.max(...orderItems.map(item => item.deliveryDays || 2));
 
-        // Debug logging
         console.log('Order Items Shipping Costs:', orderItems.map(item => ({
             name: item.name,
             shippingCost: item.shippingCost
@@ -243,7 +230,6 @@ const createOrder = async (req, res, next) => {
                 attachments.push({ filename: 'instapay-receipt.jpg', path: order.image });
             }
             await sendMail(order.email, 'فاتورتك من المتجر', html, attachments);
-            // إرسال للإدارة
             await sendMail('support@mizanoo.com', 'نسخة إدارية من فاتورة الطلب', html, attachments);
 
             res.status(201).json({ status: 'success', order: populatedOrder });
@@ -337,26 +323,23 @@ const updateOrderStatus = async (req, res, next) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        const oldStatus = order.status; // Save old status for logic
+        const oldStatus = order.status;
 
-        // Start transaction for stock restoration or deduction
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // Update order status
-            order.status = status || order.status; // Update status if provided
-            order.paymentStatus = paymentStatus || order.paymentStatus; // Update payment method if provided
+            order.status = status || order.status;
+            order.paymentStatus = paymentStatus || order.paymentStatus;
             if (status === 'delivered') {
                 order.isDelivered = true;
                 order.deliveredAt = Date.now();
             } else if (status === 'cancelled') {
                 order.isDelivered = false;
-                order.deliveredAt = null; // Reset deliveredAt if cancelled
+                order.deliveredAt = null;
             }
             await order.save({ session });
 
-            // If order is being cancelled and was not already cancelled, restore stock
             if (status === 'cancelled' && oldStatus !== 'cancelled') {
                 for (const item of order.cartItems) {
                     if (item.variantId) {
@@ -375,7 +358,6 @@ const updateOrderStatus = async (req, res, next) => {
                 }
             }
 
-            // NEW: If order is being re-activated from cancelled, deduct stock again
             if (oldStatus === 'cancelled' && status !== 'cancelled') {
                 for (const item of order.cartItems) {
                     if (item.variantId) {
@@ -419,7 +401,6 @@ const createOrderWithCart = async (req, res, next) => {
     try {
         const userId = req.user._id;
 
-        // Validate required fields
         const requiredFields = ['name', 'phone', 'address', 'city', 'email'];
         const missingFields = requiredFields.filter(field => !req.body[field]);
         if (missingFields.length > 0) {
@@ -429,7 +410,6 @@ const createOrderWithCart = async (req, res, next) => {
             });
         }
 
-        // Get cart and validate
         const cart = await Cart.findOne({ userID: userId }).populate('cartItems.prdID');
         if (!cart || !cart.cartItems.length) {
             return res.status(400).json({
@@ -438,7 +418,6 @@ const createOrderWithCart = async (req, res, next) => {
             });
         }
 
-        // Validate stock for each item
         for (const item of cart.cartItems) {
             const variant = await Product.findById(item.product);
             if (!variant) {
@@ -449,12 +428,10 @@ const createOrderWithCart = async (req, res, next) => {
             }
         }
 
-        // Start transaction
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // Create order
             const order = await Order.create([
                 {
                     user: userId,
@@ -465,21 +442,16 @@ const createOrderWithCart = async (req, res, next) => {
                 }
             ], { session });
 
-            // Update variant stock
             for (const item of cart.cartItems) {
                 const variant = await Product.findById(item.product);
                 variant.stock -= item.quantity;
                 await variant.save({ session });
             }
 
-            // Clear cart
             await Cart.findOneAndDelete({ userID: userId }, { session });
 
-            // Commit transaction
             await session.commitTransaction();
             session.endSession();
-
-            // Populate and return order
             const populatedOrder = await order
                 .populate('user')
                 .populate('items.product');
@@ -510,12 +482,9 @@ const cancelOrder = async (req, res, next) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        // إذا كان الطلب ملغي بالفعل، اعتبر العملية ناجحة (idempotent)
         if (order.status === 'cancelled') {
             return res.status(200).json({ status: 'success', message: 'تم إلغاء الطلب مسبقاً', order });
         }
-
-        // إذا لم يكن الطلب في حالة pending، أرجع رسالة واضحة
         if (order.status !== 'pending') {
             return res.status(400).json({
                 status: 'error',
@@ -524,40 +493,32 @@ const cancelOrder = async (req, res, next) => {
             });
         }
 
-        // Start transaction for stock restoration
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // Update order status
             order.status = 'cancelled';
             await order.save({ session });
 
-            // Restore stock quantities
-            console.log('Restoring stock for cancelled order:', order._id);
-
             for (const item of order.cartItems) {
                 if (item.variantId) {
-                    // إذا كان هناك variantId صالح
                     await ProductVariant.findByIdAndUpdate(
                         item.variantId,
                         { $inc: { quantity: item.quantity } },
                         { session }
                     );
                 } else if (item.product) {
-                    // إذا كان هناك product صالح
                     await Product.findByIdAndUpdate(
                         item.product,
                         { $inc: { stock: item.quantity } },
                         { session }
                     );
-                } // إذا لم يوجد product ولا variantId، تجاهل العنصر ولا ترمي خطأ
+                }
             }
 
             await session.commitTransaction();
             session.endSession();
 
-            // الآن يمكنك عمل populate أو إرسال إيميل بدون session
             const populatedOrder = await Order.findById(order._id)
                 .populate('user')
                 .populate('cartItems.product')
@@ -582,7 +543,6 @@ const cancelOrder = async (req, res, next) => {
     }
 };
 
-// إرسال فاتورة الطلب عبر البريد
 const sendOrderConfirmationEmail = async (req, res) => {
   try {
     const Order = require('../models/order.model');

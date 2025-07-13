@@ -32,8 +32,6 @@ const {
     getProfile,
     addToWishlist,
     removeFromWishlist,
-    addAddress,
-    removeAddress,
     googleLogin,
     getWishlist,
     getAddressBook,
@@ -285,12 +283,6 @@ router.use(isAuthenticated);
  *         description: Not authenticated
  */
 
-// Admin profile routes
-router.get('/admin/profile', authorizeAdmin, getProfile);
-router.put('/admin/profile', authorizeAdmin, upload.single('avatar'), updateUser);
-router.put('/admin/profile/password', authorizeAdmin, updatePassword);
-
-// User-specific protected routes
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('profileImg'), updateUser);
 router.patch('/profile', upload.single('profileImg'), updateUser);
@@ -299,7 +291,7 @@ router.put('/profile/password', updatePassword);
 // User routes
 router.get('/wishlist', getWishlist);
 
-// Address book routes
+// Address  routes
 router.get('/address-book', getAddressBook);
 router.post('/address-book', addAddressToBook);
 router.patch('/address-book/:addressId', updateAddressInBook);

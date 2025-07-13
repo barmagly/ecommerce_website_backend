@@ -19,12 +19,10 @@ let getCurrentUserCart = async (req, res) => {
             select: 'sku price quantity images'
         });
 
-        console.log('🛒 userCart:', JSON.stringify(userCart, null, 2));
-        // تصفية cartItems لإزالة العناصر التي ليس لها منتج
+        console.log('userCart:', JSON.stringify(userCart, null, 2));
         userCart.forEach(cart => {
             cart.cartItems = cart.cartItems.filter(item => item.prdID);
         });
-        // تعديل cartItems لإضافة السعر بعد الخصم والسعر الأصلي (بشكل متوازي)
         await Promise.all(userCart.map(async (cart, cartIdx) => {
             await Promise.all(cart.cartItems.map(async (item, itemIdx) => {
                 try {
@@ -34,10 +32,8 @@ let getCurrentUserCart = async (req, res) => {
                     let now = new Date();
                     console.log(`🔎 [cart ${cartIdx} item ${itemIdx}] productId:`, product?._id, 'category:', product?.category);
 
-                    // تحقق من وجود عرض على المنتج
                     let offer = await Offer.findOne({ type: 'product', refId: product?._id, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
                     console.log(`🔎 [cart ${cartIdx} item ${itemIdx}] product offer:`, offer);
-                    // إذا لم يوجد عرض على المنتج، تحقق من القسم
                     if (!offer && product?.category) {
                         offer = await Offer.findOne({ type: 'category', refId: product.category, startDate: { $lte: now }, $or: [ { endDate: { $gte: now } }, { endDate: null }, { endDate: { $exists: false } } ] });
                         console.log(`🔎 [cart ${cartIdx} item ${itemIdx}] category offer:`, offer);
@@ -45,7 +41,6 @@ let getCurrentUserCart = async (req, res) => {
                     if (offer) {
                         price = Math.round(originalPrice - (originalPrice * offer.discount / 100));
                     }
-                    // أضف السعرين للمنتج داخل الكارت
                     item.prdID = {
                         ...product.toObject(),
                         price,
@@ -69,7 +64,6 @@ let clearCart = async (req, res) => {
         const { id } = req.params;
         let query = { _id: id };
         
-        // If user is not admin, they can only delete their own cart
         if (req.user.role !== "admin") {
             query.userID = req.user._id;
         }
@@ -96,12 +90,10 @@ let addTOCart = async (req, res) => {
 
         let { prdID, variantId = null, quantity } = req.body;
         
-        // Debug logging
         console.log("Cart API Request Body:", req.body);
         console.log("Extracted values:", { prdID, variantId, quantity });
         console.log("User ID:", req.user._id);
         
-        // Validate required fields
         if (!prdID) {
             console.log("Validation failed: prdID is missing");
             return res.status(400).json({ message: "Product ID is required" });
@@ -112,17 +104,14 @@ let addTOCart = async (req, res) => {
             return res.status(400).json({ message: "Quantity is required" });
         }
         
-        // Allow quantity of 0 for item removal
         if (quantity < 0) {
             console.log("Validation failed: quantity is negative:", quantity);
             return res.status(400).json({ message: "Quantity cannot be negative" });
         }
         
-        // التحقق من الحد الأقصى للشراء
         if (quantity > 0) {
             const product = await Product.findById(prdID);
             if (product && product.maxQuantityPerOrder) {
-                // البحث عن الكمية الحالية في السلة
                 let currentQuantity = 0;
                 const existingCart = await CartModel.findOne({ userID: req.user._id });
                 if (existingCart) {
@@ -161,7 +150,6 @@ let addTOCart = async (req, res) => {
         if (!cart) {
             cart = new CartModel({ userID: req.user._id, cartItems: [] });
         } else {
-            // Clean up any cart items with invalid prdID references
             cart.cartItems = cart.cartItems.filter(item => item.prdID && item.prdID.toString);
         }
 
@@ -177,7 +165,6 @@ let addTOCart = async (req, res) => {
                     : !item.variantId
             });
             
-            // Defensive checks to prevent toString() errors
             if (!item.prdID || !prdID) {
                 console.log('❌ Skipping item - missing prdID');
                 return false;
@@ -207,7 +194,6 @@ let addTOCart = async (req, res) => {
             quantity: existingItem.quantity
         } : 'No existing item found');
 
-        // Debug: log cart before update
         console.log('Cart before update:', JSON.stringify(cart.cartItems, null, 2));
         if (existingItem) {
             console.log('📝 Updating existing item quantity from', existingItem.quantity, 'to', quantity === 0 ? 0 : existingItem.quantity + quantity);
@@ -226,22 +212,16 @@ let addTOCart = async (req, res) => {
                     quantity: item.quantity
                 })));
                 
-                // Remove by matching both prdID and variantId as strings
                 cart.cartItems = cart.cartItems.filter((item) => {
-                    // Check if this is NOT the item we want to remove
                     const prdMatch = item.prdID && item.prdID.toString() !== prdID.toString();
                     
-                    // For variantId matching:
-                    // If variantId is provided in request, check if this item's variantId doesn't match
-                    // If variantId is null in request, check if this item has a variantId (keep items with variants)
                     const variantMatch = variantId
                         ? !(item.variantId && item.variantId.toString() === variantId.toString())
-                        : !!(item.variantId); // Keep items that have variantId when we're removing an item without variantId
+                        : !!(item.variantId); 
                     
                     const shouldKeep = prdMatch || variantMatch;
                     console.log(`🔍 Item ${item.prdID.toString()} (variant: ${item.variantId ? item.variantId.toString() : 'null'}): prdMatch=${prdMatch}, variantMatch=${variantMatch}, keep=${shouldKeep}`);
                     
-                    // Keep the item if either prdID doesn't match OR variantId doesn't match
                     return shouldKeep;
                 });
                 
@@ -265,7 +245,6 @@ let addTOCart = async (req, res) => {
                 cart.cartItems.push(newItem);
             }
         }
-        // Debug: log cart after update
         console.log('Cart after update:', JSON.stringify(cart.cartItems, null, 2));
 
         let subTotal = 0;
